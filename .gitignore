@@ -1,0 +1,62 @@
+# === Projeto Planner - Root .gitignore ===
+
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Expo (App)
+app/.expo/
+app/dist/
+app/web-build/
+app/expo-env.d.ts
+
+# Metro Bundler
+.metro-health-check*
+
+# Native builds
+ios/
+android/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# OS
+.DS_Store
+.env.*.local
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Backend (Scraper)
+scraper/node_modules/
+scraper/.env
+scraper/.env.local
+
+# Debugging
+debug/
+logs/
