@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   View,
   Text,
   StyleSheet,
@@ -7,14 +9,17 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Picker,
 } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import { COLORS } from "../constants/colors";
+import { generateSteps } from "../services/scraperService";
+import { saveProject } from "../storage/projectStorage";
 
 export default function CreateProjectScreen({ navigation }) {
   const [projectName, setProjectName] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Aprendizado");
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const categories = [
     "Aprendizado",
@@ -23,14 +28,82 @@ export default function CreateProjectScreen({ navigation }) {
     "Empreendedorismo",
   ];
 
-  const handleCreate = () => {
+  const getScraperCategory = (value) => {
+    const categories = {
+      Aprendizado: "Aprendizado de Habilidade",
+      TCC: "TCC / Pesquisa Acadêmica",
+      "Desenvolvimento de Software": "Desenvolvimento de Software",
+      Empreendedorismo: "Empreendedorismo",
+    };
+
+    return categories[value] ?? value;
+  };
+
+  const persistAndNavigate = async (etapas, scraped) => {
+    const project = {
+      id: Date.now().toString(),
+      titulo: projectName.trim(),
+      name: projectName.trim(),
+      descricao: description.trim(),
+      prioridade: "Média",
+      categoria,
+      progresso: 0,
+      scraped,
+      etapas,
+    };
+
+    await saveProject(project);
+    navigation.navigate("ProjectDetail", { project });
+  };
+
+  const handleCreate = async () => {
     if (projectName.trim() === "") {
       alert("Por favor, insira um nome para o projeto");
       return;
     }
-    // Aqui será adicionada a lógica de criar o projeto
-    alert(`Projeto "${projectName}" criado com sucesso!`);
-    navigation.goBack();
+
+    setIsGenerating(true);
+
+    try {
+      const etapasScraped = await generateSteps(
+        projectName.trim(),
+        getScraperCategory(category),
+      );
+
+      const etapas = etapasScraped.map((etapa, index) => ({
+        id: `${Date.now()}-${index}`,
+        titulo: etapa.titulo,
+        subetapas: Array.isArray(etapa.subetapas) ? etapa.subetapas : [],
+        completed: false,
+      }));
+
+      await persistAndNavigate(etapas, true);
+    } catch (_error) {
+      Alert.alert(
+        "Gerar etapas",
+        "Não foi possível gerar etapas automaticamente. Deseja continuar em modo manual?",
+        [
+          {
+            text: "Cancelar",
+            style: "cancel",
+            onPress: () => setIsGenerating(false),
+          },
+          {
+            text: "Continuar",
+            onPress: async () => {
+              try {
+                await persistAndNavigate([], false);
+              } finally {
+                setIsGenerating(false);
+              }
+            },
+          },
+        ],
+      );
+      return;
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -100,14 +173,38 @@ export default function CreateProjectScreen({ navigation }) {
         <TouchableOpacity
           style={styles.cancelButton}
           onPress={() => navigation.goBack()}
+          disabled={isGenerating}
         >
           <Text style={styles.cancelButtonText}>Cancelar</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.createButton} onPress={handleCreate}>
-          <Text style={styles.createButtonText}>Criar Projeto</Text>
+        <TouchableOpacity
+          style={[
+            styles.createButton,
+            isGenerating && styles.createButtonDisabled,
+          ]}
+          onPress={handleCreate}
+          disabled={isGenerating}
+        >
+          {isGenerating ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator color={COLORS.text} />
+              <Text style={styles.createButtonText}>Gerando etapas...</Text>
+            </View>
+          ) : (
+            <Text style={styles.createButtonText}>Criar Projeto</Text>
+          )}
         </TouchableOpacity>
       </View>
+
+      {isGenerating && (
+        <View style={styles.loadingOverlay} pointerEvents="auto">
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.loadingText}>Gerando etapas...</Text>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -228,9 +325,38 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
   },
+  createButtonDisabled: {
+    opacity: 0.8,
+  },
   createButtonText: {
     fontSize: 14,
     fontWeight: "600",
     color: COLORS.text,
+  },
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(15, 23, 42, 0.72)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingCard: {
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    alignItems: "center",
+    gap: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  loadingText: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: "600",
   },
 });

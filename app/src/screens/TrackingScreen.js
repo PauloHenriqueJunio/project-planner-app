@@ -12,6 +12,7 @@ import { COLORS } from "../constants/colors";
 export default function TrackingScreen({ route, navigation }) {
   const project = route.params?.project || {
     name: "Projeto Sem Nome",
+    titulo: "Projeto Sem Nome",
     id: "1",
   };
   const steps = route.params?.steps || [];
@@ -19,7 +20,9 @@ export default function TrackingScreen({ route, navigation }) {
   const nextPendingStep = steps.find((step) => !step.completed);
   const completedCount = steps.filter((step) => step.completed).length;
   const totalSteps = steps.length;
-  const progressPercent = Math.round((completedCount / totalSteps) * 100);
+  const progressPercent = totalSteps
+    ? Math.round((completedCount / totalSteps) * 100)
+    : 0;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -43,10 +46,11 @@ export default function TrackingScreen({ route, navigation }) {
               </View>
               <View style={styles.nextStepContent}>
                 <Text style={styles.nextStepTitle}>
-                  {nextPendingStep.title}
+                  {nextPendingStep.title || nextPendingStep.titulo}
                 </Text>
                 <Text style={styles.nextStepDescription}>
-                  {nextPendingStep.description}
+                  {nextPendingStep.description ||
+                    nextPendingStep.subetapas?.join(" • ")}
                 </Text>
               </View>
             </View>
@@ -66,7 +70,9 @@ export default function TrackingScreen({ route, navigation }) {
 
           <View style={styles.infoCard}>
             <Text style={styles.infoLabel}>Nome do Projeto</Text>
-            <Text style={styles.infoValue}>{project.name}</Text>
+            <Text style={styles.infoValue}>
+              {project.name || project.titulo}
+            </Text>
           </View>
 
           <View style={styles.infoCard}>
@@ -156,9 +162,11 @@ export default function TrackingScreen({ route, navigation }) {
                       step.completed && styles.stepItemTitleCompleted,
                     ]}
                   >
-                    {step.title}
+                    {step.title || step.titulo}
                   </Text>
-                  <Text style={styles.stepItemDesc}>{step.description}</Text>
+                  <Text style={styles.stepItemDesc}>
+                    {step.description || step.subetapas?.join(" • ")}
+                  </Text>
                 </View>
               </View>
             ))}

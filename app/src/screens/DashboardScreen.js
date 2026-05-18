@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,21 +8,21 @@ import {
   SafeAreaView,
 } from "react-native";
 import { COLORS } from "../constants/colors";
+import { getProjects } from "../storage/projectStorage";
 
-const mockProjects = [
-  {
-    id: "1",
-    name: "App de Planejamento",
-    progress: 65,
-    description: "Desenvolvendo aplicativo móvel",
-  },
-  {
-    id: "2",
-    name: "Curso React Native",
-    progress: 40,
-    description: "Aprendizado de desenvolvimento mobile",
-  },
-];
+function normalizeProject(project) {
+  return {
+    ...project,
+    name: project.name || project.titulo || "Projeto sem nome",
+    progress:
+      typeof project.progress === "number"
+        ? project.progress
+        : typeof project.progresso === "number"
+          ? project.progresso
+          : 0,
+    description: project.description || project.descricao || "Sem descrição",
+  };
+}
 
 const ProgressBar = ({ progress }) => {
   return (
@@ -52,6 +52,21 @@ const ProjectCard = ({ project, onPress }) => {
 };
 
 export default function DashboardScreen({ navigation }) {
+  const [projects, setProjects] = useState([]);
+
+  const loadProjects = async () => {
+    const storedProjects = await getProjects();
+    setProjects(storedProjects.map(normalizeProject).reverse());
+  };
+
+  useEffect(() => {
+    loadProjects();
+
+    const unsubscribe = navigation.addListener("focus", loadProjects);
+
+    return unsubscribe;
+  }, [navigation]);
+
   const handleViewDetails = (project) => {
     navigation.navigate("ProjectDetail", { projectId: project.id, project });
   };
@@ -69,13 +84,24 @@ export default function DashboardScreen({ navigation }) {
       </View>
 
       <FlatList
-        data={mockProjects}
+        data={projects}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <ProjectCard project={item} onPress={() => handleViewDetails(item)} />
         )}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={
+          projects.length === 0 ? styles.emptyContent : styles.listContent
+        }
         scrollEnabled={true}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateTitle}>Nenhum projeto ainda</Text>
+            <Text style={styles.emptyStateText}>
+              Crie seu primeiro projeto para começar a gerar etapas e acompanhar
+              o progresso.
+            </Text>
+          </View>
+        }
       />
     </SafeAreaView>
   );
@@ -116,6 +142,29 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16,
     paddingBottom: 32,
+  },
+  emptyContent: {
+    flexGrow: 1,
+    padding: 16,
+    justifyContent: "center",
+  },
+  emptyState: {
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  emptyStateTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
   },
   projectCard: {
     backgroundColor: COLORS.cardBg,

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -6,40 +6,21 @@ import {
   SafeAreaView,
   FlatList,
   TouchableOpacity,
+  Pressable,
 } from "react-native";
 import { COLORS } from "../constants/colors";
-
-const mockSteps = [
-  {
-    id: "1",
-    title: "Planejamento",
-    description: "Definir escopo e objetivos",
-    completed: true,
-  },
-  {
-    id: "2",
-    title: "Design UI/UX",
-    description: "Criar protótipos e wireframes",
-    completed: true,
-  },
-  {
-    id: "3",
-    title: "Desenvolvimento Frontend",
-    description: "Implementar telas da aplicação",
-    completed: false,
-  },
-];
+import { updateProject } from "../storage/projectStorage";
 
 const StepItem = ({ step, onToggle }) => {
   return (
-    <TouchableOpacity style={styles.stepCard} onPress={() => onToggle(step.id)}>
+    <Pressable style={styles.stepCard} onPress={() => onToggle(step.id)}>
       <View style={styles.stepHeader}>
-        <TouchableOpacity
+        <Pressable
           style={[styles.checkbox, step.completed && styles.checkboxCompleted]}
           onPress={() => onToggle(step.id)}
         >
           {step.completed && <Text style={styles.checkmark}>✓</Text>}
-        </TouchableOpacity>
+        </Pressable>
 
         <View style={styles.stepInfo}>
           <Text
@@ -50,47 +31,66 @@ const StepItem = ({ step, onToggle }) => {
           >
             {step.title}
           </Text>
-          <Text style={styles.stepDescription}>{step.description}</Text>
-        </View>
-
-        <View
-          style={[
-            styles.statusBadge,
-            step.completed && styles.statusBadgeCompleted,
-          ]}
-        >
-          <Text
-            style={[
-              styles.statusText,
-              step.completed && styles.statusTextCompleted,
-            ]}
-          >
-            {step.completed ? "Concluído" : "Pendente"}
+          <Text style={styles.stepDescription} numberOfLines={2}>
+            {step.subetapas?.join(" • ") || "Sem subetapas geradas"}
           </Text>
         </View>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 
 export default function ProjectDetailScreen({ route, navigation }) {
-  const [steps, setSteps] = useState(mockSteps);
-  const project = route.params?.project || {
-    name: "Projeto Sem Nome",
+  const projectFromRoute = route.params?.project || {
     id: "1",
+    titulo: "Projeto Sem Nome",
+    name: "Projeto Sem Nome",
+    etapas: [],
+    progresso: 0,
   };
 
-  const toggleStep = (stepId) => {
-    setSteps(
-      steps.map((step) =>
-        step.id === stepId ? { ...step, completed: !step.completed } : step,
-      ),
+  const [project, setProject] = useState(projectFromRoute);
+
+  const steps = useMemo(() => {
+    return (project.etapas || []).map((step, index) => ({
+      id: step.id || `${project.id}-${index}`,
+      titulo: step.titulo || step.title || `Etapa ${index + 1}`,
+      title: step.title || step.titulo || `Etapa ${index + 1}`,
+      subetapas: step.subetapas || [],
+      completed: Boolean(step.completed),
+    }));
+  }, [project]);
+
+  const persistProject = async (nextProject) => {
+    setProject(nextProject);
+    await updateProject(nextProject);
+  };
+
+  const toggleStep = async (stepId) => {
+    const nextSteps = steps.map((step) =>
+      step.id === stepId ? { ...step, completed: !step.completed } : step,
     );
+
+    const completedCount = nextSteps.filter((step) => step.completed).length;
+    const totalSteps = nextSteps.length;
+    const progressPercent = totalSteps
+      ? Math.round((completedCount / totalSteps) * 100)
+      : 0;
+
+    const nextProject = {
+      ...project,
+      etapas: nextSteps,
+      progresso: progressPercent,
+    };
+
+    await persistProject(nextProject);
   };
 
   const completedCount = steps.filter((s) => s.completed).length;
   const totalSteps = steps.length;
-  const progressPercent = Math.round((completedCount / totalSteps) * 100);
+  const progressPercent = totalSteps
+    ? Math.round((completedCount / totalSteps) * 100)
+    : 0;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -98,7 +98,7 @@ export default function ProjectDetailScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backButton}>← Voltar</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{project.name}</Text>
+        <Text style={styles.headerTitle}>{project.titulo || project.name}</Text>
         <View style={{ width: 50 }} />
       </View>
 
@@ -127,6 +127,15 @@ export default function ProjectDetailScreen({ route, navigation }) {
         )}
         contentContainerStyle={styles.stepsList}
         scrollEnabled={true}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateTitle}>Nenhuma etapa gerada</Text>
+            <Text style={styles.emptyStateText}>
+              Este projeto foi salvo no modo manual. Você pode adicionar etapas
+              depois.
+            </Text>
+          </View>
+        }
       />
 
       <TouchableOpacity
@@ -285,6 +294,26 @@ const styles = StyleSheet.create({
   },
   statusTextCompleted: {
     color: COLORS.success,
+  },
+  emptyState: {
+    padding: 20,
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginHorizontal: 16,
+    marginTop: 12,
+  },
+  emptyStateTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  emptyStateText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
   },
   trackingButton: {
     marginHorizontal: 16,
