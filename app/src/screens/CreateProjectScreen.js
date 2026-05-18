@@ -18,7 +18,7 @@ import { saveProject } from "../storage/projectStorage";
 export default function CreateProjectScreen({ navigation }) {
   const [projectName, setProjectName] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("Aprendizado");
+  const [category, setCategory] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
 
   const categories = [
@@ -30,6 +30,7 @@ export default function CreateProjectScreen({ navigation }) {
 
   const getScraperCategory = (value) => {
     const categories = {
+      "": "",
       Aprendizado: "Aprendizado de Habilidade",
       TCC: "TCC / Pesquisa Acadêmica",
       "Desenvolvimento de Software": "Desenvolvimento de Software",
@@ -39,22 +40,29 @@ export default function CreateProjectScreen({ navigation }) {
     return categories[value] ?? value;
   };
 
-  const persistAndNavigate = async (etapas, scraped) => {
-    const project = {
-      id: Date.now().toString(),
-      titulo: projectName.trim(),
-      name: projectName.trim(),
-      descricao: description.trim(),
-      prioridade: "Média",
-      categoria,
-      progresso: 0,
-      scraped,
-      etapas,
-    };
-
-    await saveProject(project);
-    navigation.navigate("ProjectDetail", { project });
-  };
+  const buildFallbackEtapas = (titulo) => [
+    {
+      titulo: `Planejar ${titulo}`,
+      subetapas: [
+        `Definir o objetivo de ${titulo}`,
+        `Listar recursos para ${titulo}`,
+      ],
+    },
+    {
+      titulo: `Estruturar ${titulo}`,
+      subetapas: [
+        `Organizar as etapas principais de ${titulo}`,
+        "Definir prazos e prioridades",
+      ],
+    },
+    {
+      titulo: `Executar ${titulo}`,
+      subetapas: [
+        `Colocar a primeira versão de ${titulo} em prática`,
+        "Revisar e ajustar os próximos passos",
+      ],
+    },
+  ];
 
   const handleCreate = async () => {
     if (projectName.trim() === "") {
@@ -65,41 +73,67 @@ export default function CreateProjectScreen({ navigation }) {
     setIsGenerating(true);
 
     try {
-      const etapasScraped = await generateSteps(
+      const response = await generateSteps(
         projectName.trim(),
         getScraperCategory(category),
       );
 
-      const etapas = etapasScraped.map((etapa, index) => ({
+      const categoriaDetectada =
+        response.categoriaDetectada ||
+        getScraperCategory(category) ||
+        "Aprendizado de Habilidade";
+
+      const etapas = (response.etapas || []).map((etapa, index) => ({
         id: `${Date.now()}-${index}`,
         titulo: etapa.titulo,
         subetapas: Array.isArray(etapa.subetapas) ? etapa.subetapas : [],
         completed: false,
       }));
 
-      await persistAndNavigate(etapas, true);
+      const project = {
+        id: Date.now().toString(),
+        titulo: projectName.trim(),
+        name: projectName.trim(),
+        descricao: description.trim(),
+        prioridade: "Média",
+        categoria:
+          getScraperCategory(category) ||
+          categoriaDetectada ||
+          "Aprendizado de Habilidade",
+        categoriaDetectada,
+        progresso: 0,
+        scraped: true,
+        etapas,
+      };
+
+      await saveProject(project);
+
+      navigation.navigate("ProjectDetail", { project });
     } catch (_error) {
-      Alert.alert(
-        "Gerar etapas",
-        "Não foi possível gerar etapas automaticamente. Deseja continuar em modo manual?",
-        [
-          {
-            text: "Cancelar",
-            style: "cancel",
-            onPress: () => setIsGenerating(false),
-          },
-          {
-            text: "Continuar",
-            onPress: async () => {
-              try {
-                await persistAndNavigate([], false);
-              } finally {
-                setIsGenerating(false);
-              }
-            },
-          },
-        ],
-      );
+      const fallbackCategoria =
+        getScraperCategory(category) || "Aprendizado de Habilidade";
+      const fallbackEtapas = buildFallbackEtapas(projectName.trim());
+
+      const project = {
+        id: Date.now().toString(),
+        titulo: projectName.trim(),
+        name: projectName.trim(),
+        descricao: description.trim(),
+        prioridade: "Média",
+        categoria: fallbackCategoria,
+        categoriaDetectada: fallbackCategoria,
+        progresso: 0,
+        scraped: false,
+        etapas: fallbackEtapas.map((etapa, index) => ({
+          id: `${Date.now()}-fallback-${index}`,
+          titulo: etapa.titulo,
+          subetapas: etapa.subetapas,
+          completed: false,
+        })),
+      };
+
+      await saveProject(project);
+      navigation.navigate("ProjectDetail", { project });
       return;
     } finally {
       setIsGenerating(false);
@@ -154,11 +188,15 @@ export default function CreateProjectScreen({ navigation }) {
               style={styles.picker}
               dropdownIconColor={COLORS.primary}
             >
-              {categories.map((cat) => (
-                <Picker.Item key={cat} label={cat} value={cat} />
-              ))}
+              <Picker.Item label="Detectar automaticamente" value="" />
+              {categories.map((cat) =>
+                cat ? <Picker.Item key={cat} label={cat} value={cat} /> : null,
+              )}
             </Picker>
           </View>
+          <Text style={styles.categoryHint}>
+            Deixe em branco para detectar automaticamente
+          </Text>
         </View>
 
         <View style={styles.infoBox}>
@@ -276,6 +314,11 @@ const styles = StyleSheet.create({
   picker: {
     color: COLORS.text,
     height: 50,
+  },
+  categoryHint: {
+    marginTop: 6,
+    fontSize: 12,
+    color: COLORS.textSecondary,
   },
   infoBox: {
     backgroundColor: COLORS.cardBg,

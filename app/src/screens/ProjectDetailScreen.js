@@ -103,6 +103,12 @@ export default function ProjectDetailScreen({ route, navigation }) {
       </View>
 
       <View style={styles.progressSection}>
+        <Text style={styles.categoryText}>
+          Categoria:{" "}
+          {project.categoriaDetectada ||
+            project.categoria ||
+            "Não identificada"}
+        </Text>
         <View style={styles.progressInfo}>
           <Text style={styles.progressLabel}>Progresso do Projeto</Text>
           <Text style={styles.progressPercent}>{progressPercent}%</Text>
@@ -185,6 +191,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.cardBg,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+  },
+  categoryText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginBottom: 10,
+    fontWeight: "600",
   },
   progressInfo: {
     flexDirection: "row",

@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const SCRAPER_URL = "http://192.168.0.110:3000/scrape";
-const SCRAPER_TIMEOUT = 15000;
+const SCRAPER_TIMEOUT = 60000;
 
 export async function generateSteps(titulo, categoria) {
   try {
@@ -11,7 +11,7 @@ export async function generateSteps(titulo, categoria) {
       { timeout: SCRAPER_TIMEOUT },
     );
 
-    return response.data?.etapas ?? [];
+    return response.data ?? { etapas: [] };
   } catch (error) {
     const isNetworkError =
       error.code === "ECONNABORTED" ||

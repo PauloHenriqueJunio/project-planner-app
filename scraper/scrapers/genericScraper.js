@@ -1,8 +1,5 @@
 const axios = require("axios");
-const { chromium } = require("playwright");
-
-const WIKIPEDIA_REST_BASE =
-  "https://en.wikipedia.org/api/rest_v1/page/sections";
+const cheerio = require("cheerio");
 
 function normalizeCategory(value) {
   return String(value || "")
@@ -23,65 +20,78 @@ function extractUnique(values) {
   return resultados;
 }
 
-async function scrapeWikipediaSections(titulo) {
-  // Estrategia 1: Wikipedia REST API (JSON limpo, sem browser).
-  const encodedTitle = encodeURIComponent(String(titulo).trim());
-  const url = `${WIKIPEDIA_REST_BASE}/${encodedTitle}`;
+function buildQuery(titulo, categoria) {
+  const title = String(titulo || "").trim();
+  const normalizedCategory = normalizeCategory(categoria);
 
-  const response = await axios.get(url, { timeout: 15000 });
-  const items = Array.isArray(response.data?.items) ? response.data.items : [];
-  const titles = items.map((item) => item?.title).filter(Boolean);
+  if (normalizedCategory === "desenvolvimento de software") {
+    return `${title} roadmap desenvolvimento web frontend backend`;
+  }
 
-  return extractUnique(titles);
+  if (normalizedCategory === "empreendedorismo") {
+    return `${title} empreendedorismo plano de negocios`;
+  }
+
+  return `${title} guia etapas roadmap`;
 }
 
-async function scrapeSebraeHeadings() {
-  // Estrategia 2: Playwright + Chromium (HTML dinamico).
-  let browser;
+async function scrapeDuckDuckGo(query) {
+  const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
 
-  try {
-    browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage();
+  console.log(`[genericScraper] DuckDuckGo request: ${url}`);
 
-    await page.goto("https://sebrae.com.br", {
-      waitUntil: "networkidle",
-      timeout: 30000,
-    });
+  const response = await axios.get(url, {
+    timeout: 15000,
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+    },
+  });
 
-    const titles = await page.$$eval("h2, h3", (elements) =>
-      elements
-        .map((element) => element.textContent?.replace(/\s+/g, " ").trim())
-        .filter(Boolean),
-    );
+  const $ = cheerio.load(response.data);
+  const sections = [];
 
-    return extractUnique(titles);
-  } catch (error) {
-    return [];
-  } finally {
-    if (browser) {
-      await browser.close();
+  $("a.result__a, h2.result__title a").each((_, element) => {
+    const title = $(element).text().replace(/\s+/g, " ").trim();
+    const snippet = $(element)
+      .closest(".result")
+      .find(".result__snippet")
+      .text()
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (title) {
+      sections.push(title);
     }
-  }
+
+    if (snippet) {
+      sections.push(snippet);
+    }
+  });
+
+  return extractUnique(sections).slice(0, 10);
 }
 
 async function genericScraper({ titulo, categoria }) {
   const normalizedCategory = normalizeCategory(categoria);
+  const query = buildQuery(titulo, normalizedCategory);
 
-  const wikipediaCategories = [
-    "aprendizado de habilidade",
-    "tcc / pesquisa acadêmica",
-    "desenvolvimento de software",
-  ];
+  console.log(
+    `[genericScraper] solicitacao para titulo="${titulo}", categoria="${categoria}" -> normalizada="${normalizedCategory}"`,
+  );
+  console.log(`[genericScraper] DuckDuckGo query: ${query}`);
 
-  if (wikipediaCategories.includes(normalizedCategory)) {
-    return scrapeWikipediaSections(titulo);
+  try {
+    return await scrapeDuckDuckGo(query);
+  } catch (error) {
+    console.error(
+      "[genericScraper] DuckDuckGo scrape erro:",
+      error.message || error,
+    );
+    return [];
   }
-
-  if (normalizedCategory === "empreendedorismo") {
-    return scrapeSebraeHeadings();
-  }
-
-  return [];
 }
 
 module.exports = genericScraper;

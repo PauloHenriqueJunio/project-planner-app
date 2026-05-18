@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -6,23 +6,75 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  Pressable,
 } from "react-native";
 import { COLORS } from "../constants/colors";
+import { getProjects, updateProject } from "../storage/projectStorage";
 
 export default function TrackingScreen({ route, navigation }) {
-  const project = route.params?.project || {
-    name: "Projeto Sem Nome",
-    titulo: "Projeto Sem Nome",
-    id: "1",
-  };
-  const steps = route.params?.steps || [];
+  const routeProject = route.params?.project;
+  const routeSteps = route.params?.steps || [];
 
-  const nextPendingStep = steps.find((step) => !step.completed);
+  const [project, setProject] = useState(
+    routeProject || { name: "Projeto Sem Nome", id: "1", etapas: [] },
+  );
+  const [steps, setSteps] = useState(
+    routeSteps.length > 0 ? routeSteps : project.etapas || project.steps || [],
+  );
+
+  useEffect(() => {
+    const load = async () => {
+      if (!project?.id) return;
+      const all = await getProjects();
+      const found = all.find((p) => p.id === project.id);
+      if (found) {
+        setProject(found);
+        setSteps(found.etapas || found.steps || []);
+      }
+    };
+
+    load();
+  }, [route.params]);
+
+  const nextPendingStep = useMemo(
+    () => steps.find((step) => !step.completed),
+    [steps],
+  );
+
   const completedCount = steps.filter((step) => step.completed).length;
   const totalSteps = steps.length;
   const progressPercent = totalSteps
     ? Math.round((completedCount / totalSteps) * 100)
     : 0;
+
+  const toggleStep = async (stepId) => {
+    const nextSteps = steps.map((step) =>
+      step.id === stepId ? { ...step, completed: !step.completed } : step,
+    );
+
+    const nextCompletedCount = nextSteps.filter(
+      (step) => step.completed,
+    ).length;
+    const nextTotalSteps = nextSteps.length;
+    const nextProgressPercent = nextTotalSteps
+      ? Math.round((nextCompletedCount / nextTotalSteps) * 100)
+      : 0;
+
+    const nextProject = {
+      ...project,
+      etapas: nextSteps,
+      progresso: nextProgressPercent,
+    };
+
+    setProject(nextProject);
+    setSteps(nextSteps);
+
+    try {
+      await updateProject(nextProject);
+    } catch (_error) {
+      // Persistência local falhou, mas a UI continua funcionando.
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -141,8 +193,9 @@ export default function TrackingScreen({ route, navigation }) {
             <Text style={styles.sectionTitle}>Todas as Etapas</Text>
 
             {steps.map((step) => (
-              <View
+              <Pressable
                 key={step.id}
+                onPress={() => toggleStep(step.id)}
                 style={[
                   styles.stepItemList,
                   step.completed && styles.stepItemCompleted,
@@ -168,7 +221,7 @@ export default function TrackingScreen({ route, navigation }) {
                     {step.description || step.subetapas?.join(" • ")}
                   </Text>
                 </View>
-              </View>
+              </Pressable>
             ))}
           </View>
         )}
