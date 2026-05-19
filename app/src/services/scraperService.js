@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const SCRAPER_URL = "http://192.168.0.110:3000/scrape";
+// Use the dev machine LAN IP so Expo/device can reach the backend
+const SCRAPER_URL = "http://192.168.0.9:3000/scrape";
 const SCRAPER_TIMEOUT = 60000;
 
 export async function generateSteps(titulo, categoria) {

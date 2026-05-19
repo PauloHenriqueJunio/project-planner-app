@@ -1,9 +1,6 @@
 const express = require("express");
 
-const parseEtapas = require("../parser");
-const genericScraper = require("../scrapers/genericScraper");
-const wikipediaScraper = require("../scrapers/wikipediaScraper");
-const { detectCategory } = require("../services/categoryDetector");
+const generateEtapasWithAI = require("../services/aiEtapas");
 
 const router = express.Router();
 
@@ -33,87 +30,51 @@ function buildFallbackEtapas(titulo) {
   ];
 }
 
-function normalizeCategory(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
-}
-
-async function getEtapasFromScraper({ titulo, categoria }) {
-  const normalizedCategory = normalizeCategory(categoria);
-
-  switch (normalizedCategory) {
-    case "tcc/pesquisa acadêmica":
-    case "tcc / pesquisa acadêmica":
-    case "tcc":
-    case "pesquisa acadêmica":
-      return wikipediaScraper(titulo);
-
-    case "desenvolvimento de software":
-    default:
-      return genericScraper({ titulo, categoria });
-  }
-}
-
 router.post("/", async (request, response) => {
   const { titulo, categoria } = request.body || {};
   console.log("[scrape] Recebido /scrape -> body:", request.body);
   const providedCategory =
     typeof categoria === "string" ? categoria.trim() : "";
 
-  if (!titulo) {
+  if (!titulo || !providedCategory) {
     return response.status(400).json({
-      erro: "Campo obrigatório ausente. Envie titulo.",
+      erro: "Campos obrigatórios ausentes. Envie titulo e categoria.",
     });
   }
 
   try {
-    const categoriaDetectada =
-      providedCategory ||
-      (await (async () => {
-        console.log(
-          "[scrape] providedCategory vazio, chamando detectCategory()...",
-        );
-        const detected = await detectCategory(titulo);
-        console.log("[scrape] detectCategory retornou:", detected);
-        return detected;
-      })());
+    console.log("[scrape] gerando etapas via IA...");
 
-    let etapas = [];
+    // Wrap the AI call with a hard timeout so we never hang indefinitely
+    const withTimeout = (promise, ms, onTimeout) =>
+      Promise.race([
+        promise,
+        new Promise((resolve) => setTimeout(() => resolve(onTimeout()), ms)),
+      ]);
 
-    try {
-      const secoes = await getEtapasFromScraper({
-        titulo,
-        categoria: categoriaDetectada,
-      });
+    const callTimeout = Number(process.env.SCRAPER_AI_TIMEOUT || 60000);
 
-      console.log(
-        "[scrape] secoes retornadas:",
-        Array.isArray(secoes) ? `${secoes.length} entradas` : typeof secoes,
-      );
+    const etapas = await withTimeout(
+      generateEtapasWithAI(titulo, providedCategory),
+      callTimeout,
+      () => {
+        console.warn("[scrape] AI generation timed out -> using fallback");
+        return buildFallbackEtapas(titulo);
+      },
+    );
 
-      etapas = parseEtapas(secoes);
-    } catch (scraperError) {
-      console.warn(
-        "[scrape] scraper falhou:",
-        scraperError.message || scraperError,
-      );
-    }
+    const safeEtapas =
+      Array.isArray(etapas) && etapas.length > 0
+        ? etapas
+        : buildFallbackEtapas(titulo);
 
-    if (!Array.isArray(etapas) || etapas.length === 0) {
-      console.log(
-        "[scrape] scraper vazio, usando fallback local sem Gemini...",
-      );
-      etapas = buildFallbackEtapas(titulo);
-    }
-
-    if (!Array.isArray(etapas) || etapas.length === 0) {
-      etapas = buildFallbackEtapas(titulo);
-    }
-
-    return response.json({ etapas });
+    console.log("[scrape] retornando etapas (count):", safeEtapas.length);
+    return response.json({ etapas: safeEtapas });
   } catch (error) {
+    console.error(
+      "[scrape] erro ao gerar etapas:",
+      error && error.message ? error.message : error,
+    );
     return response.json({ etapas: buildFallbackEtapas(titulo) });
   }
 });

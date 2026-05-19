@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   View,
   Text,
   StyleSheet,
@@ -9,8 +8,9 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
+  Alert,
 } from "react-native";
-import { Picker } from "@react-native-picker/picker";
+// category is now a free text input; no Picker required
 import { COLORS } from "../constants/colors";
 import { generateSteps } from "../services/scraperService";
 import { saveProject } from "../storage/projectStorage";
@@ -18,7 +18,7 @@ import { saveProject } from "../storage/projectStorage";
 export default function CreateProjectScreen({ navigation }) {
   const [projectName, setProjectName] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState("Aprendizado");
   const [isGenerating, setIsGenerating] = useState(false);
 
   const categories = [
@@ -30,7 +30,6 @@ export default function CreateProjectScreen({ navigation }) {
 
   const getScraperCategory = (value) => {
     const categories = {
-      "": "",
       Aprendizado: "Aprendizado de Habilidade",
       TCC: "TCC / Pesquisa Acadêmica",
       "Desenvolvimento de Software": "Desenvolvimento de Software",
@@ -70,18 +69,19 @@ export default function CreateProjectScreen({ navigation }) {
       return;
     }
 
-    setIsGenerating(true);
+    if (!category) {
+      alert("Por favor, selecione uma categoria");
+      return;
+    }
 
+    setIsGenerating(true);
     try {
       const response = await generateSteps(
         projectName.trim(),
         getScraperCategory(category),
       );
 
-      const categoriaDetectada =
-        response.categoriaDetectada ||
-        getScraperCategory(category) ||
-        "Aprendizado de Habilidade";
+      console.log("[CreateProject] generateSteps response:", response);
 
       const etapas = (response.etapas || []).map((etapa, index) => ({
         id: `${Date.now()}-${index}`,
@@ -96,11 +96,8 @@ export default function CreateProjectScreen({ navigation }) {
         name: projectName.trim(),
         descricao: description.trim(),
         prioridade: "Média",
-        categoria:
-          getScraperCategory(category) ||
-          categoriaDetectada ||
-          "Aprendizado de Habilidade",
-        categoriaDetectada,
+        categoria: getScraperCategory(category),
+        categoriaDetectada: getScraperCategory(category),
         progresso: 0,
         scraped: true,
         etapas,
@@ -108,10 +105,19 @@ export default function CreateProjectScreen({ navigation }) {
 
       await saveProject(project);
 
-      navigation.navigate("ProjectDetail", { project });
+      Alert.alert("Projeto criado", "Projeto salvo com sucesso.", [
+        {
+          text: "OK",
+          onPress: () => navigation.replace("ProjectDetail", { project }),
+        },
+      ]);
     } catch (_error) {
-      const fallbackCategoria =
-        getScraperCategory(category) || "Aprendizado de Habilidade";
+      console.error("[CreateProject] error generating steps:", _error);
+      try {
+        alert("Erro ao gerar etapas: " + (_error?.message || String(_error)));
+      } catch (e) {}
+
+      const fallbackCategoria = getScraperCategory(category);
       const fallbackEtapas = buildFallbackEtapas(projectName.trim());
 
       const project = {
@@ -133,7 +139,17 @@ export default function CreateProjectScreen({ navigation }) {
       };
 
       await saveProject(project);
-      navigation.navigate("ProjectDetail", { project });
+
+      Alert.alert(
+        "Projeto criado (fallback)",
+        "Projeto salvo com etapas de fallback.",
+        [
+          {
+            text: "OK",
+            onPress: () => navigation.replace("ProjectDetail", { project }),
+          },
+        ],
+      );
       return;
     } finally {
       setIsGenerating(false);
@@ -181,22 +197,14 @@ export default function CreateProjectScreen({ navigation }) {
 
         <View style={styles.formGroup}>
           <Text style={styles.label}>Categoria</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={category}
-              onValueChange={(itemValue) => setCategory(itemValue)}
-              style={styles.picker}
-              dropdownIconColor={COLORS.primary}
-            >
-              <Picker.Item label="Detectar automaticamente" value="" />
-              {categories.map((cat) =>
-                cat ? <Picker.Item key={cat} label={cat} value={cat} /> : null,
-              )}
-            </Picker>
-          </View>
-          <Text style={styles.categoryHint}>
-            Deixe em branco para detectar automaticamente
-          </Text>
+          <TextInput
+            style={[styles.input, styles.categoryInput]}
+            placeholder="Ex: Desenvolvimento de Software"
+            placeholderTextColor={COLORS.textSecondary}
+            value={category}
+            onChangeText={setCategory}
+            maxLength={60}
+          />
         </View>
 
         <View style={styles.infoBox}>
@@ -252,20 +260,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  backButton: {
-    fontSize: 14,
-    color: COLORS.primary,
-    fontWeight: "600",
-  },
   headerTitle: {
     fontSize: 20,
     fontWeight: "bold",
@@ -285,6 +279,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   input: {
+    backgroundColor: COLORS.cardBg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: COLORS.text,
+    fontSize: 14,
+  },
+  categoryInput: {
     backgroundColor: COLORS.cardBg,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -314,11 +318,6 @@ const styles = StyleSheet.create({
   picker: {
     color: COLORS.text,
     height: 50,
-  },
-  categoryHint: {
-    marginTop: 6,
-    fontSize: 12,
-    color: COLORS.textSecondary,
   },
   infoBox: {
     backgroundColor: COLORS.cardBg,
