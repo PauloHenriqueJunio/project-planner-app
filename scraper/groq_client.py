@@ -1,18 +1,37 @@
-import os
-import requests
 import json
+import os
+
+import requests
 from dotenv import load_dotenv
 
 # Carrega .env local na pasta `scraper` se existir (permite que cada pessoa
 # coloque sua chave em scraper/.env durante testes). Não comite o arquivo .env.
-load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_API_BASE = os.getenv("GROQ_API_BASE", "https://api.groq.ai")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3")
+GROQ_API_BASE = os.getenv("GROQ_API_BASE", "https://api.groq.com/openai/v1")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 
-def call_groq(prompt: str, max_tokens: int = 512) -> dict:
+def _extract_json_text(text: str) -> str:
+    if not isinstance(text, str):
+        return text
+
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.removeprefix("```json").removeprefix("```").strip()
+        if cleaned.endswith("```"):
+          cleaned = cleaned.removesuffix("```").strip()
+
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        return cleaned[start : end + 1]
+
+    return cleaned
+
+
+def call_groq(prompt: str, max_tokens: int = 1200) -> dict:
     # modo mock para facilitar testes locais quando a chave for 'mock' ou começar com 'test'
     if GROQ_API_KEY and (GROQ_API_KEY == "mock" or GROQ_API_KEY.startswith("test")):
         return {"mock": True, "prompt": prompt}
@@ -20,12 +39,21 @@ def call_groq(prompt: str, max_tokens: int = 512) -> dict:
     if not GROQ_API_KEY:
         raise RuntimeError("GROQ_API_KEY environment variable is not set")
 
-    url = f"{GROQ_API_BASE}/v1/models/{GROQ_MODEL}/outputs"
+    url = f"{GROQ_API_BASE}/chat/completions"
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json",
     }
-    payload = {"input": prompt, "max_output_tokens": max_tokens}
+    payload = {
+        "model": GROQ_MODEL,
+        "messages": [
+            {"role": "system", "content": "Você responde de forma objetiva e prática."},
+            {"role": "user", "content": prompt},
+        ],
+        "max_tokens": max_tokens,
+        "temperature": 0.2,
+        "response_format": {"type": "json_object"},
+    }
 
     resp = requests.post(url, headers=headers, json=payload, timeout=60)
     resp.raise_for_status()
@@ -46,16 +74,13 @@ def generate_plan_from_prompt(prompt: str) -> str:
         }
         return json.dumps(sample)
 
-    # tentativas comuns de extrair texto dependendo da API
+    # resposta no formato OpenAI-compatible
     if isinstance(data, dict):
-        # Groq-like responses may include 'outputs' or 'choices'
-        if "outputs" in data and isinstance(data["outputs"], list) and data["outputs"]:
-            first = data["outputs"][0]
-            if isinstance(first, dict) and "content" in first:
-                return first["content"]
-            return json.dumps(first)
         if "choices" in data and isinstance(data["choices"], list) and data["choices"]:
             c = data["choices"][0]
+            message = c.get("message") if isinstance(c, dict) else None
+            if isinstance(message, dict) and message.get("content"):
+                return _extract_json_text(message["content"])
             return c.get("text") or json.dumps(c)
 
     # fallback: return raw text
@@ -88,13 +113,11 @@ def generate_chat_response(subtask: str, message: str, history: list | None = No
     data = call_groq(prompt, max_tokens=max_tokens)
 
     if isinstance(data, dict):
-        if "outputs" in data and isinstance(data["outputs"], list) and data["outputs"]:
-            first = data["outputs"][0]
-            if isinstance(first, dict) and "content" in first:
-                return first["content"]
-            return json.dumps(first)
         if "choices" in data and isinstance(data["choices"], list) and data["choices"]:
             c = data["choices"][0]
+            message = c.get("message") if isinstance(c, dict) else None
+            if isinstance(message, dict) and message.get("content"):
+                return message["content"]
             return c.get("text") or json.dumps(c)
 
     return json.dumps(data)

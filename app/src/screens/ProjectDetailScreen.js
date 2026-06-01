@@ -6,6 +6,7 @@ import {
   SafeAreaView,
   FlatList,
   TouchableOpacity,
+  Linking,
 } from "react-native";
 import { COLORS } from "../constants/colors";
 import { ProjectContext } from "../context/ProjectContext";
@@ -27,11 +28,50 @@ function normalizeSubtasks(step, stepIdx) {
   const raw = Array.isArray(step.subtaskList) ? step.subtaskList : [];
   return raw.map((st, subIdx) => {
     if (typeof st === "string") {
-      return { id: `${step.id || stepIdx}-sub-${subIdx}`, title: st, completed: false };
+      return { id: `${step.id || stepIdx}-sub-${subIdx}`, title: st, description: "", links: [], completed: false };
     }
+
+    const rawLinks = Array.isArray(st.links)
+      ? st.links
+      : Array.isArray(st.product_links)
+        ? st.product_links
+        : Array.isArray(st.productLinks)
+          ? st.productLinks
+          : [];
+
+    const links = rawLinks
+      .map((link, linkIdx) => {
+        if (typeof link === "string") {
+          const url = /^https?:\/\//i.test(link) ? link : /^www\./i.test(link) ? `https://${link}` : "";
+          if (!url) return null;
+          return { id: `${step.id || stepIdx}-sub-${subIdx}-link-${linkIdx}`, label: `Link ${linkIdx + 1}`, url };
+        }
+
+        if (link && typeof link === "object") {
+          const candidate = String(link.url || link.href || link.link || "").trim();
+          const url = /^https?:\/\//i.test(candidate)
+            ? candidate
+            : /^www\./i.test(candidate)
+              ? `https://${candidate}`
+              : "";
+          if (!url) return null;
+          return {
+            id: link.id || `${step.id || stepIdx}-sub-${subIdx}-link-${linkIdx}`,
+            label: (link.label || link.title || link.name || `Link ${linkIdx + 1}`).trim(),
+            url,
+          };
+        }
+
+        return null;
+      })
+      .filter(Boolean)
+      .slice(0, 3);
+
     return {
       id: st.id || `${step.id || stepIdx}-sub-${subIdx}`,
       title: st.title || `Sub-tarefa ${subIdx + 1}`,
+      description: st.description || "",
+      links,
       completed: Boolean(st.completed),
     };
   });
@@ -52,7 +92,7 @@ function normalizeSteps(input) {
   });
 }
 
-const StepItem = ({ step, onToggleStep, onToggleSubtask, onOpenChat }) => {
+const StepItem = ({ step, onToggleStep, onToggleSubtask, onOpenChat, onOpenLink }) => {
   return (
     <View style={styles.stepCard}>
       <View style={styles.stepHeader}>
@@ -77,9 +117,27 @@ const StepItem = ({ step, onToggleStep, onToggleSubtask, onOpenChat }) => {
             <View key={st.id} style={styles.subtaskRow}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.subtaskText, st.completed && styles.stepTitleCompleted]}>{st.title}</Text>
+                {!!st.description && <Text style={styles.subtaskDescription}>{st.description}</Text>}
+
+                {Array.isArray(st.links) && st.links.length > 0 && (
+                  <View style={styles.subtaskLinksRow}>
+                    {st.links.map((link) => (
+                      <TouchableOpacity
+                        key={link.id || `${st.id}-${link.url}`}
+                        style={styles.subtaskLinkChip}
+                        onPress={() => onOpenLink(link.url)}
+                      >
+                        <Text style={styles.subtaskLinkChipText}>{link.label || "Abrir link"}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
               </View>
 
-              <TouchableOpacity style={styles.chatButton} onPress={() => onOpenChat(st.title, step.title)}>
+              <TouchableOpacity
+                style={styles.chatButton}
+                onPress={() => onOpenChat(st.description ? `${st.title}: ${st.description}` : st.title, step.title)}
+              >
                 <Text style={styles.chatButtonText}>Como fazer?</Text>
               </TouchableOpacity>
 
@@ -140,6 +198,20 @@ export default function ProjectDetailScreen({ route, navigation }) {
     navigation.navigate("Chat", { project, stepTitle, subtask });
   };
 
+  const openLink = async (url) => {
+    if (!url) return;
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        alert("Não foi possível abrir este link.");
+        return;
+      }
+      await Linking.openURL(url);
+    } catch (e) {
+      alert("Não foi possível abrir este link.");
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -174,6 +246,7 @@ export default function ProjectDetailScreen({ route, navigation }) {
             onToggleStep={toggleStep}
             onToggleSubtask={toggleSubtask}
             onOpenChat={openChat}
+            onOpenLink={openLink}
           />
         )}
         contentContainerStyle={styles.stepsList}
@@ -232,7 +305,18 @@ const styles = StyleSheet.create({
   completeButtonText: { color: COLORS.text, fontWeight: "700", fontSize: 12 },
   subtasksContainer: { marginTop: 10, gap: 8 },
   subtaskRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  subtaskDescription: { color: COLORS.textSecondary, fontSize: 12, marginTop: 2 },
   subtaskText: { color: COLORS.text, fontSize: 13 },
+  subtaskLinksRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 },
+  subtaskLinkChip: {
+    backgroundColor: `${COLORS.primary}20`,
+    borderWidth: 1,
+    borderColor: `${COLORS.primary}55`,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  subtaskLinkChipText: { color: COLORS.primary, fontSize: 11, fontWeight: "700" },
   chatButton: { backgroundColor: `${COLORS.primary}30`, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
   chatButtonText: { color: COLORS.text, fontSize: 12, fontWeight: "700" },
   subtaskDoneButton: { backgroundColor: COLORS.primary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },

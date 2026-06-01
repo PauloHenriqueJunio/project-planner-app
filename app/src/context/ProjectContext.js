@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect } from "react";
+import React, { createContext, useCallback, useEffect, useMemo, useState } from "react";
 import { Alert } from "react-native";
 let AsyncStorage;
 try {
@@ -18,11 +18,7 @@ export const ProjectContext = createContext({
 export function ProjectProvider({ children }) {
   const [projects, setProjects] = useState([]);
 
-  useEffect(() => {
-    loadProjects();
-  }, []);
-
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     if (!AsyncStorage) return;
     try {
       const raw = await AsyncStorage.getItem("projects_v1");
@@ -30,26 +26,30 @@ export function ProjectProvider({ children }) {
     } catch (e) {
       console.warn("failed to load projects", e);
     }
-  };
+  }, []);
 
-  const persist = async (next) => {
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
+
+  const persist = useCallback(async (next) => {
     if (!AsyncStorage) return;
     try {
       await AsyncStorage.setItem("projects_v1", JSON.stringify(next));
     } catch (e) {
       console.warn("failed to persist projects", e);
     }
-  };
+  }, []);
 
-  const addProject = (project) => {
+  const addProject = useCallback((project) => {
     setProjects((prev) => {
       const next = [project, ...prev];
       persist(next);
       return next;
     });
-  };
+  }, [persist]);
 
-  const updateProject = (projectId, patchOrUpdater) => {
+  const updateProject = useCallback((projectId, patchOrUpdater) => {
     setProjects((prev) => {
       const next = prev.map((p) => {
         if (p.id !== projectId) return p;
@@ -61,18 +61,23 @@ export function ProjectProvider({ children }) {
       persist(next);
       return next;
     });
-  };
+  }, [persist]);
 
-  const deleteProject = (projectId) => {
+  const deleteProject = useCallback((projectId) => {
     setProjects((prev) => {
       const next = prev.filter((p) => p.id !== projectId);
       persist(next);
       return next;
     });
-  };
+  }, [persist]);
+
+  const contextValue = useMemo(
+    () => ({ projects, addProject, updateProject, deleteProject, loadProjects }),
+    [projects, addProject, updateProject, deleteProject, loadProjects],
+  );
 
   return (
-    <ProjectContext.Provider value={{ projects, addProject, updateProject, deleteProject, loadProjects }}>
+    <ProjectContext.Provider value={contextValue}>
       {children}
     </ProjectContext.Provider>
   );
