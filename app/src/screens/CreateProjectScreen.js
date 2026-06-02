@@ -10,6 +10,8 @@ import {
   View,
 } from "react-native";
 import { COLORS } from "../constants/colors";
+import { API_BASE } from "../constants/config";
+import Skeleton from "../components/Skeleton";
 import { ProjectContext } from "../context/ProjectContext";
 
 function createEmptyStep(seed) {
@@ -143,7 +145,7 @@ export default function CreateProjectScreen({ navigation, route }) {
     return [createEmptyStep(Date.now())];
   });
 
-  const API_BASE = "http://127.0.0.1:8000";
+  // API base now centralized in app/src/constants/config.js
 
   const addStep = () => {
     const seed = Date.now();
@@ -402,8 +404,15 @@ export default function CreateProjectScreen({ navigation, route }) {
 
       <View style={styles.generatedContainer}>
         <Text style={styles.label}>Etapas geradas (edite se quiser)</Text>
-        {generatedSteps.map((step, idx) => (
-          <View key={step.id} style={styles.stepEditor}>
+        {loadingPlan ? (
+          <View>
+            <Skeleton height={18} style={{ width: '70%' }} />
+            <Skeleton height={14} style={{ width: '90%' }} />
+            <Skeleton height={14} style={{ width: '60%' }} />
+          </View>
+        ) : (
+          generatedSteps.map((step, idx) => (
+            <View key={step.id} style={styles.stepEditor}>
             <TextInput
               style={styles.input}
               value={step.title}
@@ -524,6 +533,7 @@ export default function CreateProjectScreen({ navigation, route }) {
             nestedScrollEnabled
             showsVerticalScrollIndicator
           >
+            <Text style={styles.pageSubtitle}>Gere um plano com pesquisa web e IA, ou edite manualmente abaixo.</Text>
             {formContent}
           </ScrollView>
         </View>
@@ -553,6 +563,7 @@ const styles = StyleSheet.create({
   backButton: { fontSize: 14, color: COLORS.primary, fontWeight: "600" },
   headerTitle: { fontSize: 20, fontWeight: "bold", color: COLORS.text },
   content: { padding: 20, paddingBottom: 24 },
+  pageSubtitle: { fontSize: 13, color: COLORS.textSecondary, marginHorizontal: 20, marginBottom: 8 },
   formGroup: { marginBottom: 16 },
   label: { fontSize: 16, fontWeight: "600", color: COLORS.text, marginBottom: 8 },
   input: {

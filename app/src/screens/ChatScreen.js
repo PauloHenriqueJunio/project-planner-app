@@ -9,8 +9,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { COLORS } from "../constants/colors";
-
-const API_BASE = "http://127.0.0.1:8000"; // ajuste se necessário
+import { API_BASE } from "../constants/config";
 
 export default function ChatScreen({ route, navigation }) {
   const { project, stepTitle, subtask } = route.params || {};
@@ -32,12 +31,20 @@ export default function ChatScreen({ route, navigation }) {
       });
       const data = await resp.json();
       const assistantText = data.response || "(sem resposta)";
-      const assistantMsg = { id: String(Date.now() + 1), from: "assistant", text: assistantText };
+      const assistantMsg = {
+        id: String(Date.now() + 1),
+        from: "assistant",
+        text: assistantText,
+      };
       setMessages((m) => [...m, assistantMsg]);
       setInput("");
     } catch (err) {
       console.error(err);
-      const errMsg = { id: String(Date.now() + 2), from: "assistant", text: "Erro ao contactar o agente." };
+      const errMsg = {
+        id: String(Date.now() + 2),
+        from: "assistant",
+        text: "Erro ao contactar o agente.",
+      };
       setMessages((m) => [...m, errMsg]);
     }
   };
@@ -57,7 +64,14 @@ export default function ChatScreen({ route, navigation }) {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.messages}
         renderItem={({ item }) => (
-          <View style={[styles.bubble, item.from === "assistant" ? styles.bubbleAssistant : styles.bubbleUser]}>
+          <View
+            style={[
+              styles.bubble,
+              item.from === "assistant"
+                ? styles.bubbleAssistant
+                : styles.bubbleUser,
+            ]}
+          >
             <Text style={styles.bubbleText}>{item.text}</Text>
           </View>
         )}
@@ -97,8 +111,25 @@ const styles = StyleSheet.create({
   bubbleAssistant: { backgroundColor: COLORS.cardBg, alignSelf: "flex-start" },
   bubbleUser: { backgroundColor: COLORS.primary, alignSelf: "flex-end" },
   bubbleText: { color: COLORS.text, fontSize: 14 },
-  inputRow: { flexDirection: "row", padding: 12, borderTopWidth: 1, borderTopColor: COLORS.border },
-  input: { flex: 1, backgroundColor: COLORS.cardBg, borderRadius: 8, paddingHorizontal: 12, color: COLORS.text },
-  sendButton: { marginLeft: 8, backgroundColor: COLORS.primary, paddingHorizontal: 14, borderRadius: 8, justifyContent: "center" },
+  inputRow: {
+    flexDirection: "row",
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  input: {
+    flex: 1,
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    color: COLORS.text,
+  },
+  sendButton: {
+    marginLeft: 8,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    justifyContent: "center",
+  },
   sendText: { color: COLORS.text, fontWeight: "600" },
 });
