@@ -1,261 +1,184 @@
-# 📋 Project Planner App
+# Project Planner App
 
-Sistema mobile para planejamento, acompanhamento e execução de projetos de longa duração.  
-Desenvolvido em React Native (Expo) com backend de Web Scraping em Node.js.
+Aplicativo para planejamento e acompanhamento de projetos pessoais/acadêmicos com:
 
-**Status:** 🚧 MVP em desenvolvimento — Navegação base implementada, dados mockados
+- geracao de etapas e sub-etapas por IA
+- raspagem web para contexto do tema
+- chat por sub-tarefa ("Como fazer?")
+- progresso de tarefas e sub-tarefas
 
----
+Frontend: React Native + Expo (web/mobile)
+Backend: Python + FastAPI (scraping + IA)
 
-## 🗂️ Estrutura do Repositório
+## Status Atual
 
-```
+- Dashboard com projetos persistidos
+- Criacao de projeto com etapas/sub-etapas manuais
+- Opcao de preencher etapas via IA (`/plan`)
+- Edicao e exclusao de projetos na tela inicial
+- Detalhe do projeto com concluir/reabrir etapa e sub-etapa
+- Chat de IA por sub-tarefa (`/chat`)
+
+## Estrutura do Repositorio
+
+```text
 project-planner-app/
-├── app/                  # Aplicativo React Native (Expo)
-│   ├── assets/
-│   ├── src/
-│   │   ├── components/   # Componentes reutilizáveis de UI
-│   │   ├── screens/      # 📱 Telas da aplicação (4 telas)
-│   │   ├── constants/    # Constantes (cores, etc)
-│   │   ├── services/     # Lógica de negócio e integração com scraper
-│   │   ├── storage/      # Camada de persistência (AsyncStorage)
-│   │   ├── context/      # Gerenciamento de estado global
-│   │   ├── utils/        # Funções utilitárias
-│   │   └── models/       # Tipos e estruturas de dados
-│   ├── App.js            # Stack Navigator configurado
-│   ├── index.js
-│   └── package.json
-│
-├── scraper/              # Backend Node.js + Express (em desenvolvimento)
-│   ├── scrapers/         # Módulos de scraping por fonte
-│   ├── routes/
-│   │   └── scrape.js     # Endpoint POST /scrape
-│   ├── parser.js         # Transforma HTML em etapas estruturadas
-│   ├── index.js          # Servidor Express
-│   └── package.json
-│
+├── app/                      # Frontend Expo/React Native
+│   ├── App.js
+│   ├── package.json
+│   └── src/
+│       ├── constants/
+│       ├── context/
+│       └── screens/
+├── scraper/                  # Backend FastAPI + scraping + IA
+│   ├── app.py
+│   ├── scrape_service.py
+│   ├── groq_client.py
+│   ├── requirements.txt
+│   ├── .env.example
+│   └── README.md
 └── README.md
 ```
 
----
+## Requisitos
 
-## 📱 Telas Implementadas (MVP)
+- Node.js 20+ (recomendado para Expo SDK 54)
+- Python 3.10+
+- pip
 
-### 1. **Dashboard Screen** — Listagem de Projetos
+## Como Rodar
 
-- Lista de 2 projetos mockados
-- Exibe: nome, descrição e percentual de progresso
-- Barra de progresso visual para cada projeto
-- Botão "Ver Detalhes" → navega para ProjectDetail
-- Botão flutuante "+" → navega para CreateProject
-- Header com título "Meus Projetos"
-
-### 2. **Create Project Screen** — Formulário
-
-- Campos do formulário:
-  - **Nome do Projeto** (max 50 caracteres, com contador)
-  - **Descrição** (max 200 caracteres, com contador)
-  - **Categoria** (Picker com 4 opções: Aprendizado, TCC, Desenvolvimento de Software, Empreendedorismo)
-- Validação: Nome é obrigatório
-- Botões: "Cancelar" e "Criar Projeto"
-- Card informativo com dica
-
-### 3. **Project Detail Screen** — Detalhes do Projeto
-
-- Header com nome do projeto
-- **Barra de progresso** dinâmica (calcula % de etapas concluídas)
-- Lista de 3 etapas mockadas com:
-  - ☑️ Checkbox de conclusão (interativo)
-  - Título e descrição da etapa
-  - Badge de status: "Concluído" (verde) ou "Pendente" (cinza)
-- Botão "Acompanhar Progresso" → navega para Tracking
-
-### 4. **Tracking Screen** — Acompanhamento
-
-- **Destaque:** Próximo passo pendente em card visual com ícone 📍
-- Card de conclusão com 🎉 se todos os passos estão feitos
-- **Seção Informações:**
-  - Nome do projeto
-  - Total de etapas
-  - Etapas concluídas
-  - Etapas pendentes
-- **Progresso Geral:**
-  - Círculo com percentual
-  - Barra de progresso vertical
-  - Estatísticas com boletas de cor (verde para concluído, cinza para pendente)
-- **Lista Completa:** Todas as etapas com status
-
----
-
-## 🎨 Design System
-
-### Paleta de Cores
-
-```javascript
-// src/constants/colors.js
-Fundo:        #0F172A  (Azul escuro)
-Primário:     #1A56DB  (Azul)
-Texto:        #F8FAFC  (Branco)
-Secundário:   #CBD5E1  (Cinza claro)
-Borda:        #334155  (Cinza médio)
-Card BG:      #1E293B  (Cinza escuro)
-Sucesso:      #10B981  (Verde)
-Aviso:        #F59E0B  (Laranja)
-Erro:         #EF4444  (Vermelho)
-```
-
-### Componentes
-
-- **Stack Navigator** para navegação entre telas
-- **StyleSheet** puro do React Native (sem bibliotecas externas de UI)
-- **Headers personalizados** em cada tela com botão voltar
-- **Cards com bordas e espaçamento** consistente
-- **Barras de progresso** horizontal e vertical
-- **Checkboxes e Badges** para status visual
-- **Picker** para seleção de categoria
-
----
-
-## ✅ Pré-requisitos
-
-Antes de começar, certifique-se de ter instalado na sua máquina:
-
-- [Node.js](https://nodejs.org/) (versão 18+)
-- [Git](https://git-scm.com/)
-- [VSCode](https://code.visualstudio.com/) (recomendado)
-- [Expo Go](https://expo.dev/go) no celular (Android ou iOS)
-
----
-
-## 🚀 Como rodar o projeto
-
-### 1. Clone o repositório
-
-```bash
-git clone https://github.com/PauloHenriqueJunio/project-planner-app.git
-cd project-planner-app
-```
-
-### 2. Configure e rode o app (React Native)
-
-```bash
-cd app
-npm install --legacy-peer-deps
-npx expo start
-```
-
-Um QR code vai aparecer no terminal.  
-Abra o **Expo Go** no celular e escaneie o QR code **de dentro do app** para visualizar o projeto.
-
-> ⚠️ Seu celular e computador precisam estar na **mesma rede Wi-Fi**.
-
-### 3. Backend de scraping (em desenvolvimento)
-
-Abra um **novo terminal** e rode:
+### 1) Backend (FastAPI)
 
 ```bash
 cd scraper
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+playwright install
+cp .env.example .env
+```
+
+Edite `scraper/.env` e configure sua chave:
+
+```env
+GROQ_API_KEY=your_groq_api_key_here
+GROQ_API_BASE=https://api.groq.ai
+GROQ_MODEL=llama-3
+```
+
+Suba a API:
+
+```bash
+python -m uvicorn app:app --host 127.0.0.1 --port 8000 --reload
+```
+
+### 2) Frontend (Expo)
+
+```bash
+cd app
 npm install
-# node index.js (ainda em construção)
+npx expo install react-dom react-native-web
+npm run web
 ```
 
----
+## Endpoints da API
 
-## 📱 Como visualizar o app no celular
+### POST `/scrape`
 
-1. Instale o **Expo Go** — [App Store](https://apps.apple.com/app/expo-go/id982107779) ou [Play Store](https://play.google.com/store/apps/details?id=host.exp.exponent)
-2. Com `npx expo start` rodando, abra o Expo Go
-3. Escaneie o QR code exibido no terminal **de dentro do Expo Go** (não pela câmera nativa do celular)
+Entrada:
 
----
-
-## 🔗 Comunicação App ↔ Backend
-
-O app será conectado com o backend de scraping via REST API. O endpoint será:
-
-```
-POST http://localhost:3000/scrape
-Content-Type: application/json
-
-{
-  "titulo": "Aprender React Native",
-  "categoria": "Aprendizado"
-}
+```json
+{ "theme": "empreendedorismo" }
 ```
 
-**Nota:** Backend ainda em desenvolvimento.
+Saida:
 
----
+```json
+{ "theme": "empreendedorismo", "scraped": "..." }
+```
 
-## 🛠️ Tecnologias Utilizadas
+### POST `/plan`
 
-| Camada           | Tecnologia                   |
-| ---------------- | ---------------------------- |
-| Front-end Mobile | React Native 0.81.5          |
-| Framework        | Expo SDK 54.0.33             |
-| Navegação        | React Navigation 7.2.4       |
-| Gestos           | React Native Gesture Handler |
-| Estado Global    | Context API                  |
-| Persistência     | AsyncStorage                 |
-| Backend          | Node.js + Express            |
-| Parsing          | Cheerio                      |
-| HTTP Client      | Axios                        |
+Gera plano estruturado com etapas/sub-etapas.
 
----
+Entrada:
 
-## 📦 Dependências Instaladas
+```json
+{ "theme": "abrir loja de camisetas" }
+```
 
-### App (`/app`)
+Saida (exemplo):
 
 ```json
 {
-  "@react-navigation/native": "^7.2.4",
-  "@react-navigation/stack": "^7.9.2",
-  "react-native-gesture-handler": "~2.28.0",
-  "react-native-screens": "~4.16.0",
-  "react-native-safe-area-context": "~5.6.0",
-  "expo": "~54.0.33",
-  "react": "19.1.0",
-  "react-native": "0.81.5"
+  "theme": "abrir loja de camisetas",
+  "plan": {
+    "title": "Projeto Exemplo",
+    "steps": [
+      { "title": "Planejamento", "subtasks": ["A", "B"] },
+      { "title": "Execucao", "subtasks": ["C", "D"] }
+    ]
+  }
 }
 ```
 
-### Scraper (`/scraper`)
+### POST `/chat`
+
+Resposta contextual para uma sub-tarefa.
+
+Entrada:
 
 ```json
-{
-  "express": "^5.2.1",
-  "cheerio": "^1.2.0",
-  "axios": "^1.16.1",
-  "cors": "^2.8.6"
-}
+{ "subtask": "Validar publico-alvo", "message": "Como faco isso?" }
 ```
 
----
+Saida:
 
-## 📋 Roadmap
+```json
+{ "response": "..." }
+```
 
-- [ ] **MVP 0.2:** Integração com AsyncStorage (persistência local de projetos)
-- [ ] **MVP 0.3:** Context API para estado global (substituir dados mockados)
-- [ ] **MVP 0.4:** Backend funcional (scraping e parsing)
-- [ ] **MVP 0.5:** Integração app ↔ backend
-- [ ] **v1.0:** Testes, autenticação, deploy
+## Fluxo no App
 
----
+1. Criar projeto na tela inicial.
+2. Preencher tema/descricao.
+3. Preencher etapas manualmente OU usar "Gerar com IA".
+4. Criar projeto.
+5. Em detalhes, concluir/reabrir etapas e sub-etapas.
+6. Em cada sub-etapa, usar "Como fazer?" para abrir o chat.
 
-## 🤝 Contribuindo
+## Edicao e Exclusao de Projeto
 
-1. Crie uma branch para sua feature: `git checkout -b feat/nome-da-feature`
-2. Faça seus commits com mensagens descritivas: `git commit -m "feat: descrição"`
-3. Suba a branch: `git push origin feat/nome-da-feature`
-4. Abra um Pull Request
+- Na tela inicial, cada card possui:
+  - botao de editar (lapis)
+  - botao de excluir (lixeira)
 
----
+## Modo Mock de IA
 
-## 📞 Contato & Suporte
+Para testar sem chave real:
 
-Dúvidas ou sugestões? Abra uma [issue](https://github.com/PauloHenriqueJunio/project-planner-app/issues) no repositório!
+```bash
+export GROQ_API_KEY=test_key_for_local
+```
 
----
+Nesse modo, `/plan` e `/chat` retornam respostas de exemplo.
 
-**Desenvolvido com ❤️ por Paulo Henrique**
+## Testes Rapidos com curl
+
+```bash
+curl -s -X POST http://127.0.0.1:8000/scrape -H 'Content-Type: application/json' -d '{"theme":"horta"}'
+curl -s -X POST http://127.0.0.1:8000/plan   -H 'Content-Type: application/json' -d '{"theme":"horta"}'
+curl -s -X POST http://127.0.0.1:8000/chat   -H 'Content-Type: application/json' -d '{"subtask":"Regar plantas","message":"Como faco?"}'
+```
+
+## Observacoes
+
+- No web (Firefox), a tela de criacao usa area rolavel nativa.
+- O progresso exibido no dashboard e atualizado conforme conclusao de etapas/sub-etapas.
+
+## Roadmap
+
+- Integrar Google Places (opcional)
+- Melhorar UX da tela de criacao
+- Documentacao de deploy
