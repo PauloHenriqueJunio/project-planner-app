@@ -1,13 +1,13 @@
 import React from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
   SafeAreaView,
   ScrollView,
+  StyleSheet,
+  Text,
   TouchableOpacity,
+  View,
 } from "react-native";
-import { COLORS } from "../constants/colors";
+import { COLORS, UI } from "../constants/colors";
 
 export default function TrackingScreen({ route, navigation }) {
   const project = route.params?.project || {
@@ -19,135 +19,77 @@ export default function TrackingScreen({ route, navigation }) {
   const nextPendingStep = steps.find((step) => !step.completed);
   const completedCount = steps.filter((step) => step.completed).length;
   const totalSteps = steps.length;
-  const progressPercent = Math.round((completedCount / totalSteps) * 100);
+  const progressPercent = totalSteps
+    ? Math.round((completedCount / totalSteps) * 100)
+    : 0;
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Voltar</Text>
+          <Text style={styles.backButton}>Voltar</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Acompanhamento</Text>
         <View style={{ width: 50 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Próximo Passo em Destaque */}
-        <View style={styles.nextStepContainer}>
-          <Text style={styles.nextStepLabel}>Próximo Passo</Text>
+        <View style={styles.heroCard}>
+          <Text style={styles.heroLabel}>Projeto</Text>
+          <Text style={styles.heroTitle}>{project.name}</Text>
+          <View style={styles.progressBar}>
+            <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+          </View>
+          <Text style={styles.heroMeta}>{progressPercent}% concluído</Text>
+        </View>
 
+        <View style={styles.statsGrid}>
+          <MetricCard label="Etapas" value={totalSteps} />
+          <MetricCard label="Concluídas" value={completedCount} tone="success" />
+          <MetricCard
+            label="Pendentes"
+            value={Math.max(totalSteps - completedCount, 0)}
+            tone="warning"
+          />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Próximo passo</Text>
           {nextPendingStep ? (
             <View style={styles.nextStepCard}>
-              <View style={styles.nextStepIcon}>
-                <Text style={styles.nextStepIconText}>📍</Text>
-              </View>
-              <View style={styles.nextStepContent}>
-                <Text style={styles.nextStepTitle}>
-                  {nextPendingStep.title}
-                </Text>
+              <Text style={styles.nextStepTitle}>{nextPendingStep.title}</Text>
+              {!!nextPendingStep.description && (
                 <Text style={styles.nextStepDescription}>
                   {nextPendingStep.description}
                 </Text>
-              </View>
+              )}
             </View>
           ) : (
             <View style={styles.completedCard}>
-              <Text style={styles.completedIcon}>🎉</Text>
               <Text style={styles.completedText}>
-                Parabéns! Todos os passos foram concluídos!
+                Parabéns! Todos os passos foram concluídos.
               </Text>
             </View>
           )}
         </View>
 
-        {/* Informações do Projeto */}
-        <View style={styles.projectInfoSection}>
-          <Text style={styles.sectionTitle}>Informações do Projeto</Text>
-
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Nome do Projeto</Text>
-            <Text style={styles.infoValue}>{project.name}</Text>
-          </View>
-
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Total de Etapas</Text>
-            <Text style={styles.infoValue}>{totalSteps}</Text>
-          </View>
-
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Concluídas</Text>
-            <Text style={styles.infoValue} style={{ color: COLORS.success }}>
-              {completedCount}
-            </Text>
-          </View>
-
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Pendentes</Text>
-            <Text style={styles.infoValue} style={{ color: COLORS.warning }}>
-              {totalSteps - completedCount}
-            </Text>
-          </View>
-        </View>
-
-        {/* Progresso Geral */}
-        <View style={styles.progressSection}>
-          <Text style={styles.sectionTitle}>Progresso Geral</Text>
-
-          <View style={styles.progressCard}>
-            <View style={styles.progressCircle}>
-              <Text style={styles.progressPercent}>{progressPercent}%</Text>
-            </View>
-
-            <View style={styles.progressBarVertical}>
-              <View
-                style={[
-                  styles.progressBarVerticalFill,
-                  { height: `${progressPercent}%` },
-                ]}
-              />
-            </View>
-
-            <View style={styles.progressStats}>
-              <View style={styles.statItem}>
-                <View
-                  style={[styles.statDot, { backgroundColor: COLORS.success }]}
-                />
-                <Text style={styles.statLabel}>Concluído</Text>
-                <Text style={styles.statValue}>{completedCount}</Text>
-              </View>
-
-              <View style={styles.statItem}>
-                <View
-                  style={[styles.statDot, { backgroundColor: COLORS.border }]}
-                />
-                <Text style={styles.statLabel}>Pendente</Text>
-                <Text style={styles.statValue}>
-                  {totalSteps - completedCount}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Etapas Restantes */}
         {steps.length > 0 && (
-          <View style={styles.stepsSection}>
-            <Text style={styles.sectionTitle}>Todas as Etapas</Text>
-
-            {steps.map((step) => (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Todas as etapas</Text>
+            {steps.map((step, index) => (
               <View
                 key={step.id}
-                style={[
-                  styles.stepItemList,
-                  step.completed && styles.stepItemCompleted,
-                ]}
+                style={[styles.stepItemList, step.completed && styles.stepItemCompleted]}
               >
-                <View style={styles.stepItemIcon}>
-                  {step.completed ? (
-                    <Text style={styles.stepItemIconText}>✓</Text>
-                  ) : (
-                    <Text style={styles.stepItemIconText}>•</Text>
-                  )}
+                <View
+                  style={[
+                    styles.stepItemIcon,
+                    step.completed && styles.stepItemIconDone,
+                  ]}
+                >
+                  <Text style={styles.stepItemIconText}>
+                    {step.completed ? "✓" : index + 1}
+                  </Text>
                 </View>
                 <View style={styles.stepItemContent}>
                   <Text
@@ -158,7 +100,9 @@ export default function TrackingScreen({ route, navigation }) {
                   >
                     {step.title}
                   </Text>
-                  <Text style={styles.stepItemDesc}>{step.description}</Text>
+                  {!!step.description && (
+                    <Text style={styles.stepItemDesc}>{step.description}</Text>
+                  )}
                 </View>
               </View>
             ))}
@@ -166,17 +110,31 @@ export default function TrackingScreen({ route, navigation }) {
         )}
       </ScrollView>
 
-      {nextPendingStep && (
-        <View style={styles.actionButton}>
-          <TouchableOpacity
-            style={styles.markCompleteButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.markCompleteText}>Voltar</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      <View style={styles.actionButton}>
+        <TouchableOpacity
+          style={styles.markCompleteButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.markCompleteText}>Voltar ao projeto</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
+  );
+}
+
+function MetricCard({ label, value, tone }) {
+  const color =
+    tone === "success"
+      ? COLORS.success
+      : tone === "warning"
+        ? COLORS.warning
+        : COLORS.primary;
+
+  return (
+    <View style={styles.metricCard}>
+      <Text style={[styles.metricValue, { color }]}>{value}</Text>
+      <Text style={styles.metricLabel}>{label}</Text>
+    </View>
   );
 }
 
@@ -189,206 +147,147 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: UI.spacing.lg,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
   backButton: {
     fontSize: 14,
     color: COLORS.primary,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
+    fontSize: 18,
+    fontWeight: "800",
     color: COLORS.text,
     flex: 1,
     textAlign: "center",
   },
   content: {
-    paddingVertical: 16,
+    padding: UI.spacing.lg,
     paddingBottom: 100,
   },
-  nextStepContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 24,
+  heroCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: UI.radius.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: UI.spacing.lg,
+    marginBottom: UI.spacing.lg,
+    ...UI.shadow,
   },
-  nextStepLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.textSecondary,
-    marginBottom: 8,
+  heroLabel: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
+  heroTitle: {
+    color: COLORS.text,
+    fontSize: 22,
+    fontWeight: "800",
+    marginBottom: UI.spacing.lg,
+  },
+  progressBar: {
+    height: 10,
+    borderRadius: UI.radius.sm,
+    backgroundColor: COLORS.border,
+    overflow: "hidden",
+    marginBottom: UI.spacing.sm,
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: COLORS.primary,
+  },
+  heroMeta: { color: COLORS.textSecondary, fontSize: 12, textAlign: "right" },
+  statsGrid: {
+    flexDirection: "row",
+    gap: UI.spacing.sm,
+    marginBottom: UI.spacing.xl,
+  },
+  metricCard: {
+    flex: 1,
+    backgroundColor: COLORS.cardBg,
+    borderRadius: UI.radius.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: UI.spacing.md,
+  },
+  metricValue: { fontSize: 22, fontWeight: "800", marginBottom: 2 },
+  metricLabel: { color: COLORS.textSecondary, fontSize: 12 },
+  section: {
+    marginBottom: UI.spacing.xl,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: COLORS.text,
+    marginBottom: UI.spacing.md,
   },
   nextStepCard: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-  },
-  nextStepIcon: {
-    fontSize: 32,
-    marginTop: 4,
-  },
-  nextStepIconText: {
-    fontSize: 28,
-  },
-  nextStepContent: {
-    flex: 1,
+    backgroundColor: COLORS.cardBg,
+    borderRadius: UI.radius.lg,
+    padding: UI.spacing.lg,
+    borderWidth: 1,
+    borderColor: `${COLORS.primary}55`,
   },
   nextStepTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 16,
+    fontWeight: "800",
     color: COLORS.text,
     marginBottom: 4,
   },
   nextStepDescription: {
     fontSize: 13,
-    color: COLORS.text,
-    opacity: 0.9,
+    color: COLORS.textSecondary,
+    lineHeight: 19,
   },
   completedCard: {
-    backgroundColor: COLORS.cardBg,
-    borderWidth: 2,
-    borderColor: COLORS.success,
-    borderRadius: 12,
-    padding: 20,
-    alignItems: "center",
-    gap: 8,
-  },
-  completedIcon: {
-    fontSize: 40,
+    backgroundColor: `${COLORS.success}14`,
+    borderWidth: 1,
+    borderColor: `${COLORS.success}66`,
+    borderRadius: UI.radius.lg,
+    padding: UI.spacing.lg,
   },
   completedText: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "700",
     color: COLORS.success,
     textAlign: "center",
   },
-  projectInfoSection: {
-    paddingHorizontal: 16,
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: COLORS.text,
-    marginBottom: 12,
-  },
-  infoCard: {
-    backgroundColor: COLORS.cardBg,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  infoLabel: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  infoValue: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-  progressSection: {
-    paddingHorizontal: 16,
-    marginBottom: 24,
-  },
-  progressCard: {
-    backgroundColor: COLORS.cardBg,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  progressCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: COLORS.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    alignSelf: "center",
-    marginBottom: 20,
-  },
-  progressPercent: {
-    fontSize: 40,
-    fontWeight: "bold",
-    color: COLORS.text,
-  },
-  progressBarVertical: {
-    height: 150,
-    backgroundColor: COLORS.border,
-    borderRadius: 8,
-    overflow: "hidden",
-    marginBottom: 20,
-    justifyContent: "flex-end",
-  },
-  progressBarVerticalFill: {
-    backgroundColor: COLORS.primary,
-  },
-  progressStats: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    gap: 12,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 8,
-  },
-  statDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginBottom: 2,
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: COLORS.text,
-  },
-  stepsSection: {
-    paddingHorizontal: 16,
-    marginBottom: 20,
-  },
   stepItemList: {
     backgroundColor: COLORS.cardBg,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
+    borderRadius: UI.radius.lg,
+    padding: UI.spacing.md,
+    marginBottom: UI.spacing.sm,
     borderWidth: 1,
     borderColor: COLORS.border,
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 12,
+    gap: UI.spacing.md,
   },
   stepItemCompleted: {
-    opacity: 0.6,
+    opacity: 0.72,
   },
   stepItemIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: COLORS.primary,
+    width: 28,
+    height: 28,
+    borderRadius: UI.radius.sm,
+    backgroundColor: COLORS.surfaceElevated,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  stepItemIconDone: {
+    backgroundColor: COLORS.success,
+    borderColor: COLORS.success,
   },
   stepItemIconText: {
-    fontSize: 14,
-    fontWeight: "bold",
+    fontSize: 12,
+    fontWeight: "800",
     color: COLORS.text,
   },
   stepItemContent: {
@@ -396,33 +295,35 @@ const styles = StyleSheet.create({
   },
   stepItemTitle: {
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "800",
     color: COLORS.text,
     marginBottom: 2,
   },
   stepItemTitleCompleted: {
     textDecorationLine: "line-through",
-    color: COLORS.textSecondary,
+    color: COLORS.textMuted,
   },
   stepItemDesc: {
     fontSize: 12,
     color: COLORS.textSecondary,
+    lineHeight: 18,
   },
   actionButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: UI.spacing.lg,
+    paddingVertical: UI.spacing.md,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
+    backgroundColor: COLORS.background,
   },
   markCompleteButton: {
-    paddingVertical: 12,
+    paddingVertical: 13,
     backgroundColor: COLORS.primary,
-    borderRadius: 8,
+    borderRadius: UI.radius.md,
     alignItems: "center",
   },
   markCompleteText: {
     fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.text,
+    fontWeight: "800",
+    color: COLORS.background,
   },
 });

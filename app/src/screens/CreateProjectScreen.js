@@ -1,6 +1,5 @@
 import React, { useContext, useState } from "react";
 import {
-  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -9,7 +8,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { COLORS } from "../constants/colors";
+import { COLORS, UI } from "../constants/colors";
+import { API_BASE } from "../constants/config";
+import Skeleton from "../components/Skeleton";
+import { useToast } from "../context/ToastContext";
 import { ProjectContext } from "../context/ProjectContext";
 
 function createEmptyStep(seed) {
@@ -17,7 +19,15 @@ function createEmptyStep(seed) {
     id: `step-${seed}`,
     title: "",
     description: "",
-    subtaskList: [{ id: `sub-${seed}-0`, title: "", description: "", links: [], linksInputOpen: false }],
+    subtaskList: [
+      {
+        id: `sub-${seed}-0`,
+        title: "",
+        description: "",
+        links: [],
+        linksInputOpen: false,
+      },
+    ],
   };
 }
 
@@ -50,7 +60,12 @@ function normalizeLinks(rawLinks, stepIdx, subIdx) {
         if (!url) return null;
         return {
           id: link.id || `link-${stepIdx}-${subIdx}-${linkIdx}`,
-          label: (link.label || link.title || link.name || `Link ${linkIdx + 1}`).trim(),
+          label: (
+            link.label ||
+            link.title ||
+            link.name ||
+            `Link ${linkIdx + 1}`
+          ).trim(),
           url,
           reason: (link.reason || "").trim(),
         };
@@ -79,12 +94,26 @@ function linksToInputText(links) {
 
 function normalizeSubtasks(rawSubtasks, stepIdx) {
   if (!Array.isArray(rawSubtasks) || !rawSubtasks.length) {
-    return [{ id: `sub-fallback-${stepIdx}-0`, title: "", description: "", links: [], linksInputOpen: false }];
+    return [
+      {
+        id: `sub-fallback-${stepIdx}-0`,
+        title: "",
+        description: "",
+        links: [],
+        linksInputOpen: false,
+      },
+    ];
   }
 
   return rawSubtasks.map((sub, subIdx) => {
     if (typeof sub === "string") {
-      return { id: `sub-${stepIdx}-${subIdx}`, title: sub, description: "", links: [], linksInputOpen: false };
+      return {
+        id: `sub-${stepIdx}-${subIdx}`,
+        title: sub,
+        description: "",
+        links: [],
+        linksInputOpen: false,
+      };
     }
 
     if (sub && typeof sub === "object") {
@@ -98,13 +127,24 @@ function normalizeSubtasks(rawSubtasks, stepIdx) {
       return {
         id: sub.id || `sub-${stepIdx}-${subIdx}`,
         title: (sub.title || sub.name || "").trim(),
-        description: (sub.description || sub.details || sub.how_to || "").trim(),
+        description: (
+          sub.description ||
+          sub.details ||
+          sub.how_to ||
+          ""
+        ).trim(),
         links: normalizeLinks(rawLinks, stepIdx, subIdx),
         linksInputOpen: false,
       };
     }
 
-    return { id: `sub-${stepIdx}-${subIdx}`, title: "", description: "", links: [], linksInputOpen: false };
+    return {
+      id: `sub-${stepIdx}-${subIdx}`,
+      title: "",
+      description: "",
+      links: [],
+      linksInputOpen: false,
+    };
   });
 }
 
@@ -113,7 +153,8 @@ function formatLegacyProducts(products) {
   const names = products
     .map((product) => {
       if (typeof product === "string") return product.trim();
-      if (product && typeof product === "object") return (product.name || product.title || "").trim();
+      if (product && typeof product === "object")
+        return (product.name || product.title || "").trim();
       return "";
     })
     .filter(Boolean);
@@ -127,7 +168,9 @@ export default function CreateProjectScreen({ navigation, route }) {
   const editingProject = route?.params?.project || null;
 
   const [projectName, setProjectName] = useState(editingProject?.name || "");
-  const [description, setDescription] = useState(editingProject?.description || "");
+  const [description, setDescription] = useState(
+    editingProject?.description || "",
+  );
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generatedSteps, setGeneratedSteps] = useState(() => {
@@ -143,12 +186,16 @@ export default function CreateProjectScreen({ navigation, route }) {
     return [createEmptyStep(Date.now())];
   });
 
-  const API_BASE = "http://127.0.0.1:8000";
+  // API base now centralized in app/src/constants/config.js
 
   const addStep = () => {
     const seed = Date.now();
     setGeneratedSteps((prev) => [...prev, createEmptyStep(seed)]);
   };
+
+  const [collapsed, setCollapsed] = useState({});
+  const toggleCollapsed = (id) => setCollapsed((s) => ({ ...s, [id]: !s[id] }));
+  const { show } = useToast();
 
   const removeStep = (stepIndex) => {
     setGeneratedSteps((prev) => {
@@ -159,7 +206,9 @@ export default function CreateProjectScreen({ navigation, route }) {
 
   const updateStepField = (stepIndex, field, value) => {
     setGeneratedSteps((prev) =>
-      prev.map((step, idx) => (idx === stepIndex ? { ...step, [field]: value } : step)),
+      prev.map((step, idx) =>
+        idx === stepIndex ? { ...step, [field]: value } : step,
+      ),
     );
   };
 
@@ -172,7 +221,13 @@ export default function CreateProjectScreen({ navigation, route }) {
               ...step,
               subtaskList: [
                 ...(step.subtaskList || []),
-                { id: `sub-${seed}`, title: "", description: "", links: [], linksInputOpen: false },
+                {
+                  id: `sub-${seed}`,
+                  title: "",
+                  description: "",
+                  links: [],
+                  linksInputOpen: false,
+                },
               ],
             }
           : step,
@@ -199,12 +254,22 @@ export default function CreateProjectScreen({ navigation, route }) {
     setGeneratedSteps((prev) =>
       prev.map((step, idx) => {
         if (idx !== stepIndex) return step;
-        const nextSubs = (step.subtaskList || []).filter((_, sidx) => sidx !== subIndex);
+        const nextSubs = (step.subtaskList || []).filter(
+          (_, sidx) => sidx !== subIndex,
+        );
         return {
           ...step,
           subtaskList: nextSubs.length
             ? nextSubs
-            : [{ id: `sub-${Date.now()}`, title: "", description: "", links: [], linksInputOpen: false }],
+            : [
+                {
+                  id: `sub-${Date.now()}`,
+                  title: "",
+                  description: "",
+                  links: [],
+                  linksInputOpen: false,
+                },
+              ],
         };
       }),
     );
@@ -217,7 +282,9 @@ export default function CreateProjectScreen({ navigation, route }) {
         return {
           ...step,
           subtaskList: (step.subtaskList || []).map((sub, sidx) =>
-            sidx === subIndex ? { ...sub, linksInputOpen: !sub.linksInputOpen } : sub,
+            sidx === subIndex
+              ? { ...sub, linksInputOpen: !sub.linksInputOpen }
+              : sub,
           ),
         };
       }),
@@ -246,7 +313,7 @@ export default function CreateProjectScreen({ navigation, route }) {
   const generatePlanFromAI = async () => {
     const theme = description.trim() || projectName.trim();
     if (!theme) {
-      alert("Preencha nome ou descrição para gerar o plano.");
+      show("Preencha nome ou descrição para gerar o plano.");
       return;
     }
 
@@ -267,12 +334,15 @@ export default function CreateProjectScreen({ navigation, route }) {
       const rawSteps = Array.isArray(plan.steps) ? plan.steps : [];
 
       if (!rawSteps.length) {
-        alert("A IA não retornou etapas. Você pode preencher manualmente abaixo.");
+        show(
+          "A IA não retornou etapas. Você pode preencher manualmente abaixo.",
+        );
         return;
       }
 
       const mapped = rawSteps.map((s, idx) => {
-        const title = typeof s === "string" ? s : s?.title || `Etapa ${idx + 1}`;
+        const title =
+          typeof s === "string" ? s : s?.title || `Etapa ${idx + 1}`;
         const rawSubtasks = Array.isArray(s?.subtasks) ? s.subtasks : [];
         const legacyProducts = Array.isArray(s?.suggested_products)
           ? s.suggested_products
@@ -281,22 +351,28 @@ export default function CreateProjectScreen({ navigation, route }) {
             : Array.isArray(s?.products)
               ? s.products
               : [];
-        const baseDescription = typeof s === "object" ? (s.description || "") : "";
+        const baseDescription =
+          typeof s === "object" ? s.description || "" : "";
         const legacyProductsText = formatLegacyProducts(legacyProducts);
-        const mergedDescription = [baseDescription.trim(), legacyProductsText].filter(Boolean).join("\n\n");
+        const mergedDescription = [baseDescription.trim(), legacyProductsText]
+          .filter(Boolean)
+          .join("\n\n");
 
         return {
           id: `step-ai-${Date.now()}-${idx}`,
           title: title || `Etapa ${idx + 1}`,
           description: mergedDescription,
-          subtaskList: normalizeSubtasks(rawSubtasks.length ? rawSubtasks : [""], idx),
+          subtaskList: normalizeSubtasks(
+            rawSubtasks.length ? rawSubtasks : [""],
+            idx,
+          ),
         };
       });
 
       setGeneratedSteps(mapped);
     } catch (err) {
       console.error(err);
-      alert(`Erro ao gerar plano: ${err.message}`);
+      show(`Erro ao gerar plano: ${err.message}`);
     } finally {
       setLoadingPlan(false);
     }
@@ -304,7 +380,7 @@ export default function CreateProjectScreen({ navigation, route }) {
 
   const finalizeCreate = async () => {
     if (!projectName.trim()) {
-      alert("Por favor, insira um nome para o projeto.");
+      show("Por favor, insira um nome para o projeto.");
       return;
     }
 
@@ -338,7 +414,7 @@ export default function CreateProjectScreen({ navigation, route }) {
       .filter((step) => step.title.length > 0);
 
     if (!cleanedSteps.length) {
-      alert("Adicione pelo menos uma etapa com título para criar o projeto.");
+      show("Adicione pelo menos uma etapa com título para criar o projeto.");
       return;
     }
 
@@ -352,16 +428,23 @@ export default function CreateProjectScreen({ navigation, route }) {
           steps: cleanedSteps,
         };
         updateProject(editingProject.id, updated);
-        navigation.navigate("ProjectDetail", { project: updated, steps: cleanedSteps });
+        navigation.navigate("ProjectDetail", {
+          project: updated,
+          steps: cleanedSteps,
+        });
       } else {
-        const project = { name: projectName.trim(), id: String(Date.now()), description: description.trim() };
+        const project = {
+          name: projectName.trim(),
+          id: String(Date.now()),
+          description: description.trim(),
+        };
         const projectWithSteps = { ...project, steps: cleanedSteps };
         addProject(projectWithSteps);
         navigation.navigate("ProjectDetail", { project, steps: cleanedSteps });
       }
     } catch (e) {
       console.warn(e);
-      alert("Não foi possível criar o projeto.");
+      show("Não foi possível criar o projeto.");
     } finally {
       setIsSubmitting(false);
     }
@@ -396,106 +479,191 @@ export default function CreateProjectScreen({ navigation, route }) {
       <View style={styles.infoBox}>
         <Text style={styles.infoTitle}>💡 Etapas geradas</Text>
         <Text style={styles.infoText}>
-          Você pode preencher manualmente etapa e sub-etapas. Inclua no texto como executar e, quando necessário, quais itens usar.
+          Você pode preencher manualmente etapa e sub-etapas. Inclua no texto
+          como executar e, quando necessário, quais itens usar.
         </Text>
       </View>
 
       <View style={styles.generatedContainer}>
         <Text style={styles.label}>Etapas geradas (edite se quiser)</Text>
-        {generatedSteps.map((step, idx) => (
-          <View key={step.id} style={styles.stepEditor}>
-            <TextInput
-              style={styles.input}
-              value={step.title}
-              onChangeText={(v) => updateStepField(idx, "title", v)}
-              placeholder={`Etapa ${idx + 1}`}
-              placeholderTextColor={COLORS.textSecondary}
-            />
-
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={step.description}
-              onChangeText={(v) => updateStepField(idx, "description", v)}
-              placeholder="Como executar esta etapa (inclua produtos quando fizer sentido)"
-              placeholderTextColor={COLORS.textSecondary}
-              multiline
-              numberOfLines={3}
-            />
-
-            <View style={styles.stepButtonsRow}>
-              <TouchableOpacity style={styles.smallButton} onPress={() => addSubtask(idx)}>
-                <Text style={styles.smallButtonText}>+ Sub-etapa</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.smallDanger} onPress={() => removeStep(idx)}>
-                <Text style={styles.smallButtonText}>Remover Etapa</Text>
-              </TouchableOpacity>
-            </View>
-
-            {(step.subtaskList || []).map((sub, sidx) => (
-              <View key={sub.id || `${step.id}-${sidx}`} style={styles.subtaskRowEditor}>
-                <View style={styles.subtaskEditorContent}>
-                  <TextInput
-                    style={[styles.input, { marginBottom: 6 }]}
-                    value={typeof sub === "string" ? sub : sub.title}
-                    onChangeText={(v) => updateSubtask(idx, sidx, "title", v)}
-                    placeholder={`Sub-etapa ${sidx + 1}`}
-                    placeholderTextColor={COLORS.textSecondary}
-                  />
-                  <TextInput
-                    style={[styles.input, styles.subtaskDescriptionInput]}
-                    value={typeof sub === "string" ? "" : sub.description || ""}
-                    onChangeText={(v) => updateSubtask(idx, sidx, "description", v)}
-                    placeholder="Como fazer esta sub-etapa (com itens necessários, se houver)"
-                    placeholderTextColor={COLORS.textSecondary}
-                    multiline
-                    numberOfLines={2}
-                  />
-
-                  {typeof sub !== "string" && (
-                    <>
-                      <TouchableOpacity
-                        style={styles.optionalLinksButton}
-                        onPress={() => toggleSubtaskLinksInput(idx, sidx)}
-                      >
-                        <Text style={styles.optionalLinksButtonText}>
-                          {sub.linksInputOpen || (sub.links || []).length ? "Editar links" : "+ Links (opcional)"}
-                        </Text>
-                      </TouchableOpacity>
-
-                      {(sub.linksInputOpen || (sub.links || []).length > 0) && (
-                        <View style={styles.linksEditorBlock}>
-                          <TextInput
-                            style={[styles.input, styles.linksInput]}
-                            value={linksToInputText(sub.links || [])}
-                            onChangeText={(v) => updateSubtaskLinks(idx, sidx, v)}
-                            placeholder="https://loja.com/produto-1, https://loja.com/produto-2"
-                            placeholderTextColor={COLORS.textSecondary}
-                          />
-                          <Text style={styles.linksHint}>Até 3 links por sub-etapa.</Text>
-                        </View>
-                      )}
-                    </>
+        {loadingPlan ? (
+          <View>
+            <Skeleton height={18} style={{ width: "70%" }} />
+            <Skeleton height={14} style={{ width: "90%" }} />
+            <Skeleton height={14} style={{ width: "60%" }} />
+          </View>
+        ) : (
+          generatedSteps.map((step, idx) => (
+            <View key={step.id} style={styles.stepShell}>
+              <TouchableOpacity
+                style={styles.stepSummary}
+                onPress={() => toggleCollapsed(step.id)}
+                activeOpacity={0.82}
+              >
+                <View style={styles.stepIndexPill}>
+                  <Text style={styles.stepIndexText}>{idx + 1}</Text>
+                </View>
+                <View style={styles.stepSummaryContent}>
+                  <View style={styles.stepSummaryTopRow}>
+                    <Text style={styles.stepSummaryTitle} numberOfLines={1}>
+                      {step.title || `Etapa ${idx + 1}`}
+                    </Text>
+                    <Text style={styles.stepSummaryMeta}>
+                      {(step.subtaskList || []).length} sub-etapa
+                      {(step.subtaskList || []).length === 1 ? "" : "s"}
+                    </Text>
+                  </View>
+                  {!!step.description && (
+                    <Text style={styles.stepSummaryDescription} numberOfLines={2}>
+                      {step.description}
+                    </Text>
                   )}
                 </View>
-                <TouchableOpacity style={styles.smallDanger} onPress={() => removeSubtask(idx, sidx)}>
-                  <Text style={styles.smallButtonText}>X</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        ))}
+                <View style={styles.collapseBadge}>
+                  <Text style={styles.collapseBadgeText}>
+                    {collapsed[step.id] ? ">" : "v"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.smallButton, { alignSelf: "flex-start" }]} onPress={addStep}>
+              {!collapsed[step.id] && (
+                <View style={styles.stepEditor}>
+                  <TextInput
+                    style={styles.input}
+                    value={step.title}
+                    onChangeText={(v) => updateStepField(idx, "title", v)}
+                    placeholder={`Etapa ${idx + 1}`}
+                    placeholderTextColor={COLORS.textSecondary}
+                  />
+
+                  <TextInput
+                    style={[styles.input, styles.textArea]}
+                    value={step.description}
+                    onChangeText={(v) => updateStepField(idx, "description", v)}
+                    placeholder="Como executar esta etapa (inclua produtos quando fizer sentido)"
+                    placeholderTextColor={COLORS.textSecondary}
+                    multiline
+                    numberOfLines={3}
+                  />
+
+                  <View style={styles.stepButtonsRow}>
+                    <TouchableOpacity
+                      style={styles.smallButton}
+                      onPress={() => addSubtask(idx)}
+                    >
+                      <Text style={styles.smallButtonText}>+ Sub-etapa</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.smallDanger}
+                      onPress={() => removeStep(idx)}
+                    >
+                      <Text style={styles.smallButtonText}>Remover Etapa</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {(step.subtaskList || []).map((sub, sidx) => (
+                    <View
+                      key={sub.id || `${step.id}-${sidx}`}
+                      style={styles.subtaskCard}
+                    >
+                      <View style={styles.subtaskCardHeader}>
+                        <Text style={styles.subtaskCardTitle}>
+                          Sub-etapa {sidx + 1}
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.subtaskRemoveButton}
+                          onPress={() => removeSubtask(idx, sidx)}
+                        >
+                          <Text style={styles.subtaskRemoveText}>Remover</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      <View style={styles.subtaskEditorContent}>
+                        <TextInput
+                          style={[styles.input, { marginBottom: 6 }]}
+                          value={typeof sub === "string" ? sub : sub.title}
+                          onChangeText={(v) =>
+                            updateSubtask(idx, sidx, "title", v)
+                          }
+                          placeholder={`Sub-etapa ${sidx + 1}`}
+                          placeholderTextColor={COLORS.textSecondary}
+                        />
+                        <TextInput
+                          style={[styles.input, styles.subtaskDescriptionInput]}
+                          value={
+                            typeof sub === "string" ? "" : sub.description || ""
+                          }
+                          onChangeText={(v) =>
+                            updateSubtask(idx, sidx, "description", v)
+                          }
+                          placeholder="Como fazer esta sub-etapa (com itens necessários, se houver)"
+                          placeholderTextColor={COLORS.textSecondary}
+                          multiline
+                          numberOfLines={2}
+                        />
+
+                        {typeof sub !== "string" && (
+                          <>
+                            <TouchableOpacity
+                              style={styles.optionalLinksButton}
+                              onPress={() => toggleSubtaskLinksInput(idx, sidx)}
+                            >
+                              <Text style={styles.optionalLinksButtonText}>
+                                {sub.linksInputOpen || (sub.links || []).length
+                                  ? "Editar links"
+                                  : "+ Links (opcional)"}
+                              </Text>
+                            </TouchableOpacity>
+
+                            {(sub.linksInputOpen ||
+                              (sub.links || []).length > 0) && (
+                              <View style={styles.linksEditorBlock}>
+                                <TextInput
+                                  style={[styles.input, styles.linksInput]}
+                                  value={linksToInputText(sub.links || [])}
+                                  onChangeText={(v) =>
+                                    updateSubtaskLinks(idx, sidx, v)
+                                  }
+                                  placeholder="https://loja.com/produto-1, https://loja.com/produto-2"
+                                  placeholderTextColor={COLORS.textSecondary}
+                                />
+                                <Text style={styles.linksHint}>
+                                  Até 3 links por sub-etapa.
+                                </Text>
+                              </View>
+                            )}
+                          </>
+                        )}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          ))
+        )}
+
+        <TouchableOpacity
+          style={[styles.smallButton, { alignSelf: "flex-start" }]}
+          onPress={addStep}
+        >
           <Text style={styles.smallButtonText}>+ Adicionar Etapa</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.inlineActionRow}>
-        <TouchableOpacity style={styles.secondaryButton} onPress={generatePlanFromAI}>
-          <Text style={styles.secondaryButtonText}>{loadingPlan ? "Gerando..." : "Gerar com IA"}</Text>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={generatePlanFromAI}
+        >
+          <Text style={styles.secondaryButtonText}>
+            {loadingPlan ? "Gerando..." : "Gerar com IA"}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.createButton} onPress={finalizeCreate}>
-          <Text style={styles.createButtonText}>{isSubmitting ? "Criando..." : "Criar Projeto"}</Text>
+          <Text style={styles.createButtonText}>
+            {isSubmitting ? "Criando..." : "Criar Projeto"}
+          </Text>
         </TouchableOpacity>
       </View>
     </>
@@ -503,128 +671,273 @@ export default function CreateProjectScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Voltar</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{editingProject ? "Editar Projeto" : "Novo Projeto"}</Text>
-        <View style={{ width: 50 }} />
-      </View>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+        showsVerticalScrollIndicator
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Text style={styles.backButton}>← Voltar</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>
+            {editingProject ? "Editar Projeto" : "Novo Projeto"}
+          </Text>
+          <View style={{ width: 50 }} />
+        </View>
 
-      {Platform.OS === "web" ? (
-        <View style={styles.webScrollArea}>
-          <View style={styles.content}>{formContent}</View>
-        </View>
-      ) : (
-        <View style={styles.scrollContainer}>
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.content}
-            keyboardShouldPersistTaps="handled"
-            nestedScrollEnabled
-            showsVerticalScrollIndicator
-          >
-            {formContent}
-          </ScrollView>
-        </View>
-      )}
+        <Text style={styles.pageSubtitle}>
+          Gere um plano com pesquisa web e IA, ou edite manualmente abaixo.
+        </Text>
+        {formContent}
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: UI.spacing.lg,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
-  scrollContainer: { flex: 1 },
   scrollView: { flex: 1 },
-  webScrollArea: {
-    flex: 1,
-    overflowY: "scroll",
-    scrollbarWidth: "auto",
+  scrollContent: {
+    padding: UI.spacing.xl,
+    paddingBottom: 48,
   },
-  backButton: { fontSize: 14, color: COLORS.primary, fontWeight: "600" },
-  headerTitle: { fontSize: 20, fontWeight: "bold", color: COLORS.text },
-  content: { padding: 20, paddingBottom: 24 },
-  formGroup: { marginBottom: 16 },
-  label: { fontSize: 16, fontWeight: "600", color: COLORS.text, marginBottom: 8 },
+  backButton: { fontSize: 14, color: COLORS.primary, fontWeight: "700" },
+  headerTitle: { fontSize: 20, fontWeight: "800", color: COLORS.text },
+  content: { paddingBottom: 24 },
+  pageSubtitle: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 14,
+    lineHeight: 20,
+  },
+  formGroup: { marginBottom: UI.spacing.lg },
+  label: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: COLORS.text,
+    marginBottom: UI.spacing.sm,
+  },
   input: {
     backgroundColor: COLORS.cardBg,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: UI.radius.md,
+    paddingHorizontal: UI.spacing.md,
+    paddingVertical: 11,
     color: COLORS.text,
     fontSize: 14,
-    marginBottom: 8,
+    marginBottom: UI.spacing.sm,
   },
   textArea: { textAlignVertical: "top", height: 80 },
   infoBox: {
-    backgroundColor: COLORS.cardBg,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.primary,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: UI.radius.lg,
+    padding: UI.spacing.lg,
+    marginBottom: UI.spacing.lg,
   },
-  infoTitle: { fontSize: 14, fontWeight: "bold", color: COLORS.primary, marginBottom: 4 },
-  infoText: { fontSize: 13, color: COLORS.textSecondary },
+  infoTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: COLORS.primary,
+    marginBottom: 4,
+  },
+  infoText: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 18 },
   generatedContainer: { marginTop: 8 },
-  stepEditor: {
-    marginBottom: 12,
-    padding: 10,
+  stepShell: {
     backgroundColor: COLORS.cardBg,
-    borderRadius: 8,
+    borderRadius: UI.radius.lg,
+    borderWidth: 1,
+    borderColor: "#334155",
+    marginBottom: UI.spacing.lg,
+    overflow: "hidden",
+    ...UI.shadow,
+  },
+  stepSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: UI.spacing.lg,
+    padding: UI.spacing.lg,
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  stepIndexPill: {
+    width: 48,
+    height: 48,
+    borderRadius: UI.radius.md,
+    backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepIndexText: {
+    color: COLORS.text,
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  stepSummaryContent: { flex: 1 },
+  stepSummaryTopRow: {
+    gap: UI.spacing.xs,
+  },
+  stepSummaryTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  stepSummaryMeta: {
+    alignSelf: "flex-start",
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 2,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+  },
+  stepSummaryDescription: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: UI.spacing.sm,
+  },
+  collapseBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: UI.radius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.surfaceElevated,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  stepButtonsRow: { flexDirection: "row", gap: 8, marginTop: 8, marginBottom: 8 },
+  collapseBadgeText: {
+    color: COLORS.textSecondary,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  stepEditor: {
+    padding: UI.spacing.lg,
+    backgroundColor: COLORS.cardBg,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  stepButtonsRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 8,
+  },
   subtaskEditorContent: { flex: 1 },
-  subtaskDescriptionInput: { textAlignVertical: "top", minHeight: 56, marginBottom: 0 },
-  optionalLinksButton: { alignSelf: "flex-start", marginTop: 8, marginBottom: 6 },
-  optionalLinksButtonText: { fontSize: 12, fontWeight: "600", color: COLORS.primary },
+  subtaskDescriptionInput: {
+    textAlignVertical: "top",
+    minHeight: 56,
+    marginBottom: 0,
+  },
+  optionalLinksButton: {
+    alignSelf: "flex-start",
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  optionalLinksButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.primary,
+  },
   linksEditorBlock: { marginBottom: 2 },
   linksInput: { marginBottom: 4 },
   linksHint: { fontSize: 11, color: COLORS.textSecondary },
   smallButton: {
-    paddingHorizontal: 10,
+    paddingHorizontal: UI.spacing.md,
     paddingVertical: 8,
     backgroundColor: COLORS.primary,
-    borderRadius: 6,
+    borderRadius: UI.radius.md,
     marginRight: 8,
   },
   smallDanger: {
-    paddingHorizontal: 10,
+    paddingHorizontal: UI.spacing.md,
     paddingVertical: 8,
     backgroundColor: COLORS.error,
-    borderRadius: 6,
+    borderRadius: UI.radius.md,
   },
-  smallButtonText: { color: COLORS.text, fontWeight: "600" },
-  subtaskRowEditor: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
-  inlineActionRow: { flexDirection: "row", gap: 12, marginTop: 12, marginBottom: 24 },
+  smallButtonText: { color: COLORS.background, fontWeight: "700" },
+  subtaskCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: UI.radius.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: UI.spacing.md,
+    marginTop: UI.spacing.md,
+  },
+  subtaskCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: UI.spacing.sm,
+    marginBottom: UI.spacing.sm,
+  },
+  subtaskCardTitle: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  subtaskRemoveButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: UI.radius.sm,
+    backgroundColor: `${COLORS.error}18`,
+    borderWidth: 1,
+    borderColor: `${COLORS.error}55`,
+  },
+  subtaskRemoveText: {
+    color: COLORS.error,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  inlineActionRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 12,
+    marginBottom: 24,
+  },
   secondaryButton: {
     flex: 1,
     paddingVertical: 12,
     borderWidth: 1,
     borderColor: COLORS.primary,
-    borderRadius: 8,
+    borderRadius: UI.radius.md,
     alignItems: "center",
   },
-  secondaryButtonText: { color: COLORS.primary, fontWeight: "600", fontSize: 14 },
+  secondaryButtonText: {
+    color: COLORS.primary,
+    fontWeight: "600",
+    fontSize: 14,
+  },
   createButton: {
     flex: 1,
     paddingVertical: 12,
     backgroundColor: COLORS.primary,
-    borderRadius: 8,
+    borderRadius: UI.radius.md,
     alignItems: "center",
   },
-  createButtonText: { fontSize: 14, fontWeight: "600", color: COLORS.text },
+  createButtonText: { fontSize: 14, fontWeight: "700", color: COLORS.background },
 });

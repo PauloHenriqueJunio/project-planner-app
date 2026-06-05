@@ -1,14 +1,14 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
   FlatList,
-  TouchableOpacity,
   Linking,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { COLORS } from "../constants/colors";
+import { COLORS, UI } from "../constants/colors";
 import { ProjectContext } from "../context/ProjectContext";
 
 const mockSteps = [
@@ -24,11 +24,24 @@ const mockSteps = [
   },
 ];
 
+function normalizeUrl(rawUrl) {
+  const candidate = String(rawUrl || "").trim();
+  if (/^https?:\/\//i.test(candidate)) return candidate;
+  if (/^www\./i.test(candidate)) return `https://${candidate}`;
+  return "";
+}
+
 function normalizeSubtasks(step, stepIdx) {
   const raw = Array.isArray(step.subtaskList) ? step.subtaskList : [];
   return raw.map((st, subIdx) => {
     if (typeof st === "string") {
-      return { id: `${step.id || stepIdx}-sub-${subIdx}`, title: st, description: "", links: [], completed: false };
+      return {
+        id: `${step.id || stepIdx}-sub-${subIdx}`,
+        title: st,
+        description: "",
+        links: [],
+        completed: false,
+      };
     }
 
     const rawLinks = Array.isArray(st.links)
@@ -42,22 +55,26 @@ function normalizeSubtasks(step, stepIdx) {
     const links = rawLinks
       .map((link, linkIdx) => {
         if (typeof link === "string") {
-          const url = /^https?:\/\//i.test(link) ? link : /^www\./i.test(link) ? `https://${link}` : "";
+          const url = normalizeUrl(link);
           if (!url) return null;
-          return { id: `${step.id || stepIdx}-sub-${subIdx}-link-${linkIdx}`, label: `Link ${linkIdx + 1}`, url };
+          return {
+            id: `${step.id || stepIdx}-sub-${subIdx}-link-${linkIdx}`,
+            label: `Link ${linkIdx + 1}`,
+            url,
+          };
         }
 
         if (link && typeof link === "object") {
-          const candidate = String(link.url || link.href || link.link || "").trim();
-          const url = /^https?:\/\//i.test(candidate)
-            ? candidate
-            : /^www\./i.test(candidate)
-              ? `https://${candidate}`
-              : "";
+          const url = normalizeUrl(link.url || link.href || link.link);
           if (!url) return null;
           return {
             id: link.id || `${step.id || stepIdx}-sub-${subIdx}-link-${linkIdx}`,
-            label: (link.label || link.title || link.name || `Link ${linkIdx + 1}`).trim(),
+            label: (
+              link.label ||
+              link.title ||
+              link.name ||
+              `Link ${linkIdx + 1}`
+            ).trim(),
             url,
           };
         }
@@ -81,7 +98,8 @@ function normalizeSteps(input) {
   const arr = Array.isArray(input) && input.length ? input : mockSteps;
   return arr.map((s, idx) => {
     const subtasks = normalizeSubtasks(s, idx);
-    const completedBySubtasks = subtasks.length > 0 && subtasks.every((st) => st.completed);
+    const completedBySubtasks =
+      subtasks.length > 0 && subtasks.every((st) => st.completed);
     return {
       id: s.id || String(idx + 1),
       title: s.title || `Etapa ${idx + 1}`,
@@ -92,68 +110,93 @@ function normalizeSteps(input) {
   });
 }
 
-const StepItem = ({ step, onToggleStep, onToggleSubtask, onOpenChat, onOpenLink }) => {
-  return (
-    <View style={styles.stepCard}>
-      <View style={styles.stepHeader}>
-        <View style={styles.stepInfo}>
-          <Text style={[styles.stepTitle, step.completed && styles.stepTitleCompleted]}>
-            {step.title}
-          </Text>
-          {!!step.description && <Text style={styles.stepDescription}>{step.description}</Text>}
-        </View>
-
-        <TouchableOpacity
-          style={[styles.completeButton, step.completed && styles.completeButtonDone]}
-          onPress={() => onToggleStep(step.id)}
-        >
-          <Text style={styles.completeButtonText}>{step.completed ? "Reabrir" : "Concluir"}</Text>
-        </TouchableOpacity>
+const StepItem = ({
+  step,
+  index,
+  onToggleStep,
+  onToggleSubtask,
+  onOpenChat,
+  onOpenLink,
+}) => (
+  <View style={styles.stepCard}>
+    <View style={styles.stepHeader}>
+      <View style={[styles.stepNumber, step.completed && styles.stepNumberDone]}>
+        <Text style={styles.stepNumberText}>{index + 1}</Text>
       </View>
+      <View style={styles.stepInfo}>
+        <Text style={[styles.stepTitle, step.completed && styles.textCompleted]}>
+          {step.title}
+        </Text>
+        {!!step.description && (
+          <Text style={styles.stepDescription}>{step.description}</Text>
+        )}
+      </View>
+      <TouchableOpacity
+        style={[styles.completeButton, step.completed && styles.completeButtonDone]}
+        onPress={() => onToggleStep(step.id)}
+      >
+        <Text style={styles.completeButtonText}>
+          {step.completed ? "Reabrir" : "Concluir"}
+        </Text>
+      </TouchableOpacity>
+    </View>
 
-      {Array.isArray(step.subtaskList) && step.subtaskList.length > 0 && (
-        <View style={styles.subtasksContainer}>
-          {step.subtaskList.map((st) => (
-            <View key={st.id} style={styles.subtaskRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.subtaskText, st.completed && styles.stepTitleCompleted]}>{st.title}</Text>
-                {!!st.description && <Text style={styles.subtaskDescription}>{st.description}</Text>}
+    {Array.isArray(step.subtaskList) && step.subtaskList.length > 0 && (
+      <View style={styles.subtasksContainer}>
+        {step.subtaskList.map((st) => (
+          <View key={st.id} style={styles.subtaskRow}>
+            <TouchableOpacity
+              style={[
+                styles.checkButton,
+                st.completed && styles.checkButtonDone,
+              ]}
+              onPress={() => onToggleSubtask(step.id, st.id)}
+            >
+              <Text style={styles.checkButtonText}>{st.completed ? "✓" : ""}</Text>
+            </TouchableOpacity>
 
-                {Array.isArray(st.links) && st.links.length > 0 && (
-                  <View style={styles.subtaskLinksRow}>
-                    {st.links.map((link) => (
-                      <TouchableOpacity
-                        key={link.id || `${st.id}-${link.url}`}
-                        style={styles.subtaskLinkChip}
-                        onPress={() => onOpenLink(link.url)}
-                      >
-                        <Text style={styles.subtaskLinkChipText}>{link.label || "Abrir link"}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
+            <View style={styles.subtaskContent}>
+              <Text style={[styles.subtaskText, st.completed && styles.textCompleted]}>
+                {st.title}
+              </Text>
+              {!!st.description && (
+                <Text style={styles.subtaskDescription}>{st.description}</Text>
+              )}
+
+              {Array.isArray(st.links) && st.links.length > 0 && (
+                <View style={styles.subtaskLinksRow}>
+                  {st.links.map((link) => (
+                    <TouchableOpacity
+                      key={link.id || `${st.id}-${link.url}`}
+                      style={styles.subtaskLinkChip}
+                      onPress={() => onOpenLink(link.url)}
+                    >
+                      <Text style={styles.subtaskLinkChipText}>
+                        {link.label || "Abrir link"}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
 
               <TouchableOpacity
                 style={styles.chatButton}
-                onPress={() => onOpenChat(st.description ? `${st.title}: ${st.description}` : st.title, step.title)}
+                onPress={() =>
+                  onOpenChat(
+                    st.description ? `${st.title}: ${st.description}` : st.title,
+                    step.title,
+                  )
+                }
               >
-                <Text style={styles.chatButtonText}>Como fazer?</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.subtaskDoneButton, st.completed && styles.completeButtonDone]}
-                onPress={() => onToggleSubtask(step.id, st.id)}
-              >
-                <Text style={styles.completeButtonText}>{st.completed ? "Reabrir" : "Concluir"}</Text>
+                <Text style={styles.chatButtonText}>Pedir ajuda da IA</Text>
               </TouchableOpacity>
             </View>
-          ))}
-        </View>
-      )}
-    </View>
-  );
-};
+          </View>
+        ))}
+      </View>
+    )}
+  </View>
+);
 
 export default function ProjectDetailScreen({ route, navigation }) {
   const { updateProject } = useContext(ProjectContext);
@@ -161,13 +204,20 @@ export default function ProjectDetailScreen({ route, navigation }) {
   const project = route.params?.project || { name: "Projeto Sem Nome", id: "1" };
   const [steps, setSteps] = useState(() => normalizeSteps(incomingSteps));
 
-  const completedCount = useMemo(() => steps.filter((s) => s.completed).length, [steps]);
+  const completedCount = useMemo(
+    () => steps.filter((s) => s.completed).length,
+    [steps],
+  );
   const totalSteps = steps.length || 1;
   const progressPercent = Math.round((completedCount / totalSteps) * 100);
 
   useEffect(() => {
     if (!project?.id) return;
-    updateProject(project.id, (prev) => ({ ...prev, steps, progress: progressPercent }));
+    updateProject(project.id, (prev) => ({
+      ...prev,
+      steps,
+      progress: progressPercent,
+    }));
   }, [project?.id, steps, progressPercent, updateProject]);
 
   const toggleStep = (stepId) => {
@@ -175,8 +225,15 @@ export default function ProjectDetailScreen({ route, navigation }) {
       prev.map((step) => {
         if (step.id !== stepId) return step;
         const nextCompleted = !step.completed;
-        const nextSubtasks = (step.subtaskList || []).map((st) => ({ ...st, completed: nextCompleted }));
-        return { ...step, completed: nextCompleted, subtaskList: nextSubtasks };
+        const nextSubtasks = (step.subtaskList || []).map((st) => ({
+          ...st,
+          completed: nextCompleted,
+        }));
+        return {
+          ...step,
+          completed: nextCompleted,
+          subtaskList: nextSubtasks,
+        };
       }),
     );
   };
@@ -188,7 +245,8 @@ export default function ProjectDetailScreen({ route, navigation }) {
         const nextSubtasks = (step.subtaskList || []).map((st) =>
           st.id === subtaskId ? { ...st, completed: !st.completed } : st,
         );
-        const nextCompleted = nextSubtasks.length > 0 && nextSubtasks.every((st) => st.completed);
+        const nextCompleted =
+          nextSubtasks.length > 0 && nextSubtasks.every((st) => st.completed);
         return { ...step, subtaskList: nextSubtasks, completed: nextCompleted };
       }),
     );
@@ -216,44 +274,53 @@ export default function ProjectDetailScreen({ route, navigation }) {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Voltar</Text>
+          <Text style={styles.backButton}>Voltar</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{project.name}</Text>
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {project.name}
+        </Text>
         <View style={{ width: 50 }} />
       </View>
 
       <View style={styles.progressSection}>
         <View style={styles.progressInfo}>
-          <Text style={styles.progressLabel}>Progresso do Projeto</Text>
+          <View>
+            <Text style={styles.progressLabel}>Progresso do projeto</Text>
+            <Text style={styles.progressDetails}>
+              {completedCount} de {steps.length} etapas concluídas
+            </Text>
+          </View>
           <Text style={styles.progressPercent}>{progressPercent}%</Text>
         </View>
         <View style={styles.progressBarContainer}>
-          <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+          <View
+            style={[styles.progressBarFill, { width: `${progressPercent}%` }]}
+          />
         </View>
-        <Text style={styles.progressDetails}>
-          {completedCount} de {steps.length} etapas concluídas
-        </Text>
       </View>
-
-      <Text style={styles.stepsTitle}>Etapas do Projeto</Text>
 
       <FlatList
         data={steps}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <StepItem
             step={item}
+            index={index}
             onToggleStep={toggleStep}
             onToggleSubtask={toggleSubtask}
             onOpenChat={openChat}
             onOpenLink={openLink}
           />
         )}
+        ListHeaderComponent={<Text style={styles.stepsTitle}>Etapas</Text>}
         contentContainerStyle={styles.stepsList}
       />
 
-      <TouchableOpacity style={styles.trackingButton} onPress={() => navigation.navigate("Tracking", { project, steps })}>
-        <Text style={styles.trackingButtonText}>Acompanhar Progresso</Text>
+      <TouchableOpacity
+        style={styles.trackingButton}
+        onPress={() => navigation.navigate("Tracking", { project, steps })}
+      >
+        <Text style={styles.trackingButtonText}>Acompanhar progresso</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -265,68 +332,179 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: UI.spacing.lg,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
-  backButton: { fontSize: 14, color: COLORS.primary, fontWeight: "600" },
-  headerTitle: { fontSize: 20, fontWeight: "bold", color: COLORS.text, flex: 1, textAlign: "center" },
+  backButton: { fontSize: 14, color: COLORS.primary, fontWeight: "700" },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: COLORS.text,
+    flex: 1,
+    textAlign: "center",
+  },
   progressSection: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: COLORS.cardBg,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    margin: UI.spacing.lg,
+    padding: UI.spacing.lg,
+    backgroundColor: COLORS.surface,
+    borderRadius: UI.radius.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...UI.shadow,
   },
-  progressInfo: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
-  progressLabel: { fontSize: 14, fontWeight: "600", color: COLORS.textSecondary },
-  progressPercent: { fontSize: 24, fontWeight: "bold", color: COLORS.primary },
-  progressBarContainer: { height: 12, backgroundColor: COLORS.border, borderRadius: 6, overflow: "hidden", marginBottom: 8 },
-  progressBarFill: { height: "100%", backgroundColor: COLORS.primary, borderRadius: 6 },
-  progressDetails: { fontSize: 12, color: COLORS.textSecondary, textAlign: "right" },
-  stepsTitle: { fontSize: 16, fontWeight: "bold", color: COLORS.text, paddingHorizontal: 16, paddingVertical: 12 },
-  stepsList: { paddingHorizontal: 16, paddingBottom: 20 },
+  progressInfo: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: UI.spacing.md,
+    gap: UI.spacing.md,
+  },
+  progressLabel: { fontSize: 14, fontWeight: "800", color: COLORS.text },
+  progressPercent: { fontSize: 28, fontWeight: "800", color: COLORS.primary },
+  progressBarContainer: {
+    height: 10,
+    backgroundColor: COLORS.border,
+    borderRadius: UI.radius.sm,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: COLORS.primary,
+    borderRadius: UI.radius.sm,
+  },
+  progressDetails: { fontSize: 12, color: COLORS.textSecondary, marginTop: 4 },
+  stepsTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: COLORS.text,
+    marginBottom: UI.spacing.md,
+  },
+  stepsList: { paddingHorizontal: UI.spacing.lg, paddingBottom: 96 },
   stepCard: {
     backgroundColor: COLORS.cardBg,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+    borderRadius: UI.radius.lg,
+    padding: UI.spacing.lg,
+    marginBottom: UI.spacing.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...UI.shadow,
+  },
+  stepHeader: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  stepNumber: {
+    width: 30,
+    height: 30,
+    borderRadius: UI.radius.sm,
+    backgroundColor: COLORS.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  stepHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
+  stepNumberDone: {
+    backgroundColor: `${COLORS.success}24`,
+    borderColor: `${COLORS.success}55`,
+  },
+  stepNumberText: { color: COLORS.text, fontSize: 12, fontWeight: "800" },
   stepInfo: { flex: 1 },
-  stepTitle: { fontSize: 14, fontWeight: "600", color: COLORS.text, marginBottom: 4 },
-  stepTitleCompleted: { textDecorationLine: "line-through", color: COLORS.textSecondary },
-  stepDescription: { fontSize: 12, color: COLORS.textSecondary },
-  completeButton: { backgroundColor: COLORS.primary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  stepTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  textCompleted: { textDecorationLine: "line-through", color: COLORS.textMuted },
+  stepDescription: { fontSize: 12, color: COLORS.textSecondary, lineHeight: 18 },
+  completeButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: UI.radius.md,
+  },
   completeButtonDone: { backgroundColor: COLORS.success },
-  completeButtonText: { color: COLORS.text, fontWeight: "700", fontSize: 12 },
-  subtasksContainer: { marginTop: 10, gap: 8 },
-  subtaskRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  subtaskDescription: { color: COLORS.textSecondary, fontSize: 12, marginTop: 2 },
-  subtaskText: { color: COLORS.text, fontSize: 13 },
-  subtaskLinksRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 },
+  completeButtonText: {
+    color: COLORS.background,
+    fontWeight: "800",
+    fontSize: 12,
+  },
+  subtasksContainer: { marginTop: UI.spacing.lg, gap: UI.spacing.md },
+  subtaskRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: UI.spacing.md,
+    paddingTop: UI.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  checkButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  checkButtonDone: {
+    backgroundColor: COLORS.success,
+    borderColor: COLORS.success,
+  },
+  checkButtonText: {
+    color: COLORS.background,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  subtaskContent: { flex: 1 },
+  subtaskDescription: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginTop: 3,
+    lineHeight: 18,
+  },
+  subtaskText: { color: COLORS.text, fontSize: 13, fontWeight: "700" },
+  subtaskLinksRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: UI.spacing.sm,
+  },
   subtaskLinkChip: {
-    backgroundColor: `${COLORS.primary}20`,
+    backgroundColor: `${COLORS.primary}18`,
     borderWidth: 1,
     borderColor: `${COLORS.primary}55`,
-    borderRadius: 999,
+    borderRadius: UI.radius.sm,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  subtaskLinkChipText: { color: COLORS.primary, fontSize: 11, fontWeight: "700" },
-  chatButton: { backgroundColor: `${COLORS.primary}30`, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
-  chatButtonText: { color: COLORS.text, fontSize: 12, fontWeight: "700" },
-  subtaskDoneButton: { backgroundColor: COLORS.primary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  subtaskLinkChipText: {
+    color: COLORS.primary,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  chatButton: {
+    alignSelf: "flex-start",
+    backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: UI.radius.md,
+    marginTop: UI.spacing.sm,
+  },
+  chatButtonText: { color: COLORS.textSecondary, fontSize: 12, fontWeight: "800" },
   trackingButton: {
-    marginHorizontal: 16,
-    marginBottom: 16,
+    marginHorizontal: UI.spacing.lg,
+    marginBottom: UI.spacing.lg,
     paddingVertical: 14,
     backgroundColor: COLORS.primary,
-    borderRadius: 8,
+    borderRadius: UI.radius.md,
     alignItems: "center",
   },
-  trackingButtonText: { fontSize: 14, fontWeight: "600", color: COLORS.text },
+  trackingButtonText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: COLORS.background,
+  },
 });
