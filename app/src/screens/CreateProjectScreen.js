@@ -643,42 +643,37 @@ export default function CreateProjectScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Voltar</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {editingProject ? "Editar Projeto" : "Novo Projeto"}
-        </Text>
-        <View style={{ width: 50 }} />
-      </View>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+        showsVerticalScrollIndicator
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Text style={styles.backButton}>← Voltar</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>
+            {editingProject ? "Editar Projeto" : "Novo Projeto"}
+          </Text>
+          <View style={{ width: 50 }} />
+        </View>
 
-      {Platform.OS === "web" ? (
-        <View style={styles.webScrollArea}>
-          <View style={styles.content}>{formContent}</View>
-        </View>
-      ) : (
-        <View style={styles.scrollContainer}>
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.content}
-            keyboardShouldPersistTaps="handled"
-            nestedScrollEnabled
-            showsVerticalScrollIndicator
-          >
-            <Text style={styles.pageSubtitle}>
-              Gere um plano com pesquisa web e IA, ou edite manualmente abaixo.
-            </Text>
-            {formContent}
-          </ScrollView>
-        </View>
-      )}
+        <Text style={styles.pageSubtitle}>
+          Gere um plano com pesquisa web e IA, ou edite manualmente abaixo.
+        </Text>
+        {formContent}
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -688,16 +683,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
-  scrollContainer: { flex: 1 },
-  scrollView: { flex: 1 },
-  webScrollArea: {
-    flex: 1,
-    overflowY: "scroll",
-    scrollbarWidth: "auto",
+  scrollView: { flex: 1, height: "100vh" },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 48,
   },
   backButton: { fontSize: 14, color: COLORS.primary, fontWeight: "600" },
   headerTitle: { fontSize: 20, fontWeight: "bold", color: COLORS.text },
-  content: { padding: 20, paddingBottom: 24 },
+  content: { paddingBottom: 24 },
   pageSubtitle: {
     fontSize: 13,
     color: COLORS.textSecondary,
