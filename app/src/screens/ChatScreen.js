@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import {
   KeyboardAvoidingView,
+  Linking,
+  Modal,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -30,6 +32,94 @@ function getErrorMessage(error) {
   return "Não foi possível contactar o agente.";
 }
 
+const PRODUCT_HINTS = [
+  {
+    label: "shampoo automotivo",
+    aliases: [
+      "shampoo automotivo",
+      "xampu automotivo",
+      "shampoo de carro",
+      "xampu de carro",
+    ],
+  },
+  { label: "cera automotiva", aliases: ["cera automotiva", "cera de carro"] },
+  {
+    label: "pano de microfibra",
+    aliases: ["microfibra", "pano de microfibra", "flanela"],
+  },
+  { label: "limpa vidros automotivo", aliases: ["limpa vidros", "limpador de vidro"] },
+  { label: "pretinho para pneu", aliases: ["pretinho", "pretinho para pneu", "limpa pneu"] },
+  { label: "balde", aliases: ["balde"] },
+  { label: "esponja automotiva", aliases: ["esponja", "esponja automotiva"] },
+  { label: "detergente neutro", aliases: ["detergente neutro", "detergente"] },
+];
+
+function normalizeText(text) {
+  return String(text || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function cleanProductName(value) {
+  return String(value || "")
+    .replace(/\b(esse|essa|este|esta|o|a|um|uma)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function findProductHint(text) {
+  const normalized = normalizeText(text);
+  const found = PRODUCT_HINTS.find((hint) =>
+    hint.aliases.some((alias) => normalized.includes(normalizeText(alias))),
+  );
+  return found?.label || "";
+}
+
+function detectMissingProduct(message, fallbackContext) {
+  const normalized = normalizeText(message);
+  const hasMissingIntent = [
+    "nao tenho",
+    "nao possuo",
+    "estou sem",
+    "to sem",
+    "falta",
+    "preciso comprar",
+    "nao encontrei",
+  ].some((term) => normalized.includes(term));
+
+  if (!hasMissingIntent) return null;
+
+  const hintedProduct = findProductHint(message);
+  if (hintedProduct) return hintedProduct;
+
+  const directMatch = normalized.match(
+    /(?:nao tenho|nao possuo|estou sem|to sem|falta|preciso comprar|nao encontrei)\s+(?:um|uma|o|a|esse|essa|este|esta)?\s*([^.,;!?]+)/,
+  );
+  const directProduct = cleanProductName(directMatch?.[1]);
+  if (directProduct && !["produto", "item", "material", "isso"].includes(directProduct)) {
+    return directProduct;
+  }
+
+  return findProductHint(fallbackContext) || "produto necessario";
+}
+
+function buildOnlineLinks(product) {
+  const query = encodeURIComponent(product);
+  return [
+    `Mercado Livre: https://lista.mercadolivre.com.br/${query}`,
+    `Amazon: https://www.amazon.com.br/s?k=${query}`,
+    `Shopee: https://shopee.com.br/search?keyword=${query}`,
+  ];
+}
+
+function buildMapsSearchUrl(place) {
+  const query = encodeURIComponent(
+    [place?.name, place?.address].filter(Boolean).join(" "),
+  );
+  return `https://www.google.com/maps/search/?api=1&query=${query}`;
+}
+
 export default function ChatScreen({ route, navigation }) {
   const { stepTitle, subtask } = route.params || {};
   const { height, width } = useWindowDimensions();
@@ -41,6 +131,35 @@ export default function ChatScreen({ route, navigation }) {
   ]);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [purchasePrompt, setPurchasePrompt] = useState(null);
+  const [isFindingPlaces, setIsFindingPlaces] = useState(false);
+
+  const addAssistantMessage = (text) => {
+    setMessages((m) => [
+      ...m,
+      {
+        id: String(Date.now() + Math.random()),
+        from: "assistant",
+        text,
+      },
+    ]);
+  };
+
+  const addPlacesMessage = (product, places) => {
+    setMessages((m) => [
+      ...m,
+      {
+        id: String(Date.now() + Math.random()),
+        from: "assistant",
+        type: "places",
+        product,
+        places,
+        text: places.length
+          ? `Encontrei ${places.length} lugar(es) para comprar ${product}.`
+          : `Nao encontrei lojas proximas para ${product}.`,
+      },
+    ]);
+  };
 
   const sendMessage = async () => {
     const messageText = input.trim();
@@ -48,9 +167,13 @@ export default function ChatScreen({ route, navigation }) {
 
     const userMsg = { id: String(Date.now()), from: "user", text: messageText };
     const history = [...messages, userMsg];
+    const missingProduct = detectMissingProduct(messageText, `${subtask} ${stepTitle}`);
     setMessages(history);
     setInput("");
     setIsSending(true);
+    if (missingProduct) {
+      setPurchasePrompt({ product: missingProduct });
+    }
 
     try {
       const resp = await fetch(`${API_BASE}/chat`, {
@@ -95,6 +218,72 @@ export default function ChatScreen({ route, navigation }) {
     navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
   };
 
+  const suggestOnlinePurchase = (product) => {
+    setPurchasePrompt(null);
+    addAssistantMessage(
+      [
+        `Sem problema. Voce pode comprar "${product}" online nestes links de busca:`,
+        ...buildOnlineLinks(product),
+      ].join("\n"),
+    );
+  };
+
+  const fetchNearbyPlaces = async (product, latitude, longitude) => {
+    const response = await fetch(`${API_BASE}/places/nearby`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        product,
+        lat: latitude,
+        lng: longitude,
+        radius_meters: 5000,
+        max_results: 5,
+      }),
+    });
+    const data = await readResponseBody(response);
+    if (!response.ok) {
+      const detail = data.detail || data.error || `HTTP ${response.status}`;
+      throw new Error(String(detail));
+    }
+    return Array.isArray(data.places) ? data.places : [];
+  };
+
+  const openNearbyStores = (product) => {
+    const geolocation = globalThis.navigator?.geolocation;
+    if (!geolocation) {
+      suggestOnlinePurchase(product);
+      return;
+    }
+
+    setIsFindingPlaces(true);
+    geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords || {};
+        try {
+          const places = await fetchNearbyPlaces(product, latitude, longitude);
+          setPurchasePrompt(null);
+          if (places.length) {
+            addPlacesMessage(product, places);
+          } else {
+            suggestOnlinePurchase(product);
+          }
+        } catch (error) {
+          addAssistantMessage(
+            `Nao consegui buscar lojas proximas agora: ${getErrorMessage(error)}`,
+          );
+          suggestOnlinePurchase(product);
+        } finally {
+          setIsFindingPlaces(false);
+        }
+      },
+      () => {
+        setIsFindingPlaces(false);
+        suggestOnlinePurchase(product);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
+  };
+
   React.useEffect(() => {
     const timer = setTimeout(() => {
       scrollRef.current?.scrollToEnd({ animated: true });
@@ -128,6 +317,7 @@ export default function ChatScreen({ route, navigation }) {
         <View
           style={[
             styles.bubble,
+            item.type === "places" && styles.bubblePlaces,
             isCompact && styles.bubbleCompact,
             isUser ? styles.bubbleUser : styles.bubbleAssistant,
           ]}
@@ -150,6 +340,31 @@ export default function ChatScreen({ route, navigation }) {
           >
             {item.text}
           </Text>
+          {item.type === "places" && Array.isArray(item.places) && (
+            <View style={styles.placesList}>
+              {item.places.map((place) => (
+                <View key={place.id || place.mapsUrl || place.name} style={styles.placeCard}>
+                  <View style={styles.placeHeader}>
+                    <Text style={styles.placeName}>{place.name}</Text>
+                    {place.rating ? (
+                      <Text style={styles.placeRating}>{place.rating} / 5</Text>
+                    ) : null}
+                  </View>
+                  {!!place.address && (
+                    <Text style={styles.placeAddress}>{place.address}</Text>
+                  )}
+                  {!!(place.mapsUrl || place.name || place.address) && (
+                    <TouchableOpacity
+                      style={styles.placeButton}
+                      onPress={() => Linking.openURL(place.mapsUrl || buildMapsSearchUrl(place))}
+                    >
+                      <Text style={styles.placeButtonText}>Abrir no Maps</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       </View>
     );
@@ -260,6 +475,48 @@ export default function ChatScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
       </Shell>
+      <Modal
+        transparent
+        visible={Boolean(purchasePrompt)}
+        animationType="fade"
+        onRequestClose={() => setPurchasePrompt(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.purchaseCard}>
+            <Text style={styles.purchaseTitle}>Localizar produto</Text>
+            <Text style={styles.purchaseText}>
+              Parece que voce precisa de {purchasePrompt?.product}. Quer usar sua
+              localizacao para procurar lojas proximas?
+            </Text>
+            <View style={styles.purchaseActions}>
+              <TouchableOpacity
+                style={[
+                  styles.purchasePrimary,
+                  isFindingPlaces && styles.purchaseButtonDisabled,
+                ]}
+                onPress={() => openNearbyStores(purchasePrompt?.product)}
+                disabled={isFindingPlaces}
+              >
+                <Text style={styles.purchasePrimaryText}>
+                  {isFindingPlaces ? "Buscando..." : "Lojas proximas"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.purchaseSecondary}
+                onPress={() => suggestOnlinePurchase(purchasePrompt?.product)}
+              >
+                <Text style={styles.purchaseSecondaryText}>Comprar online</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={styles.purchaseDismiss}
+              onPress={() => setPurchasePrompt(null)}
+            >
+              <Text style={styles.purchaseDismissText}>Agora nao</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -433,6 +690,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.cardBg,
     borderColor: COLORS.border,
   },
+  bubblePlaces: {
+    width: "100%",
+    maxWidth: 620,
+  },
   bubbleUser: {
     backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
@@ -455,6 +716,55 @@ const styles = StyleSheet.create({
   bubbleText: { color: COLORS.text, fontSize: 16, lineHeight: 24 },
   bubbleTextCompact: { fontSize: 14, lineHeight: 20 },
   bubbleTextUser: { color: COLORS.background, fontWeight: "600" },
+  placesList: {
+    gap: UI.spacing.sm,
+    marginTop: UI.spacing.md,
+  },
+  placeCard: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: UI.radius.md,
+    padding: UI.spacing.md,
+  },
+  placeHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: UI.spacing.sm,
+    marginBottom: 6,
+  },
+  placeName: {
+    flex: 1,
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: "900",
+    lineHeight: 19,
+  },
+  placeRating: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  placeAddress: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: UI.spacing.sm,
+  },
+  placeButton: {
+    minHeight: 38,
+    borderRadius: UI.radius.md,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: UI.spacing.md,
+  },
+  placeButtonText: {
+    color: COLORS.background,
+    fontSize: 13,
+    fontWeight: "900",
+  },
   mobileNavBar: {
     flexDirection: "row",
     gap: UI.spacing.sm,
@@ -542,4 +852,79 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   sendText: { color: COLORS.background, fontWeight: "900", fontSize: 14 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(2, 6, 23, 0.72)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: UI.spacing.lg,
+  },
+  purchaseCard: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: COLORS.surface,
+    borderRadius: UI.radius.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: UI.spacing.xl,
+    ...UI.shadow,
+  },
+  purchaseTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: "900",
+    marginBottom: UI.spacing.sm,
+  },
+  purchaseText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: UI.spacing.lg,
+  },
+  purchaseActions: {
+    flexDirection: "row",
+    gap: UI.spacing.sm,
+  },
+  purchasePrimary: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: UI.radius.md,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  purchaseButtonDisabled: {
+    opacity: 0.6,
+  },
+  purchasePrimaryText: {
+    color: COLORS.background,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  purchaseSecondary: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: UI.radius.md,
+    backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  purchaseSecondaryText: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  purchaseDismiss: {
+    alignSelf: "center",
+    paddingHorizontal: UI.spacing.md,
+    paddingVertical: UI.spacing.md,
+    marginTop: UI.spacing.sm,
+  },
+  purchaseDismissText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: "800",
+  },
 });

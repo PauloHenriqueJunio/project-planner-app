@@ -7,6 +7,7 @@ from typing import Optional, List
 
 from scrape_service import scrape_web
 from groq_client import generate_plan_from_prompt, generate_chat_response
+from google_places_client import search_nearby_places
 
 app = FastAPI(title="Project Planner Scraper + Groq")
 
@@ -28,6 +29,14 @@ class ChatRequest(BaseModel):
     subtask: str
     message: str
     history: Optional[List[dict]] = None
+
+
+class PlacesNearbyRequest(BaseModel):
+    product: str
+    lat: float
+    lng: float
+    radius_meters: Optional[float] = 3000
+    max_results: Optional[int] = 5
 
 
 @app.post("/scrape")
@@ -112,6 +121,21 @@ async def chat(request: ChatRequest):
     try:
         resp = generate_chat_response(request.subtask, request.message, request.history)
         return {"response": resp}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/places/nearby")
+async def places_nearby(request: PlacesNearbyRequest):
+    try:
+        places = search_nearby_places(
+            request.product,
+            request.lat,
+            request.lng,
+            request.radius_meters or 3000,
+            request.max_results or 5,
+        )
+        return {"product": request.product, "places": places}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
