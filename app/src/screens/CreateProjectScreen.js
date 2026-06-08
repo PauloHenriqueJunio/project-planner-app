@@ -6,6 +6,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { COLORS, UI } from "../constants/colors";
@@ -164,6 +165,8 @@ function formatLegacyProducts(products) {
 }
 
 export default function CreateProjectScreen({ navigation, route }) {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 700;
   const { addProject, updateProject } = useContext(ProjectContext);
   const editingProject = route?.params?.project || null;
 
@@ -196,6 +199,10 @@ export default function CreateProjectScreen({ navigation, route }) {
   const [collapsed, setCollapsed] = useState({});
   const toggleCollapsed = (id) => setCollapsed((s) => ({ ...s, [id]: !s[id] }));
   const { show } = useToast();
+
+  const goHome = () => {
+    navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
+  };
 
   const removeStep = (stepIndex) => {
     setGeneratedSteps((prev) => {
@@ -681,21 +688,23 @@ export default function CreateProjectScreen({ navigation, route }) {
         nestedScrollEnabled
         showsVerticalScrollIndicator
       >
-        <View style={styles.header}>
+        <View style={[styles.header, isMobile && styles.headerMobile]}>
+          {!isMobile && (
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Text style={styles.backButton}>← Voltar</Text>
           </TouchableOpacity>
+          )}
           <Text style={styles.headerTitle}>
             {editingProject ? "Editar Projeto" : "Novo Projeto"}
           </Text>
+          {!isMobile && (
           <TouchableOpacity
             style={styles.headerHomeButton}
-            onPress={() =>
-              navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] })
-            }
+            onPress={goHome}
           >
             <Text style={styles.headerHomeButtonText}>HOME</Text>
           </TouchableOpacity>
+          )}
         </View>
 
         <Text style={styles.pageSubtitle}>
@@ -703,6 +712,19 @@ export default function CreateProjectScreen({ navigation, route }) {
         </Text>
         {formContent}
       </ScrollView>
+      {isMobile && (
+        <View style={styles.mobileActionBar}>
+          <TouchableOpacity
+            style={styles.mobileSecondaryButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.mobileSecondaryButtonText}>Voltar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.mobileSecondaryButton} onPress={goHome}>
+            <Text style={styles.mobileSecondaryButtonText}>HOME</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -721,10 +743,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
+  headerMobile: {
+    justifyContent: "center",
+  },
   scrollView: { flex: 1 },
   scrollContent: {
     padding: UI.spacing.xl,
-    paddingBottom: 48,
+    paddingBottom: 96,
   },
   backButton: { fontSize: 14, color: COLORS.primary, fontWeight: "700" },
   headerTitle: { fontSize: 20, fontWeight: "800", color: COLORS.text },
@@ -740,6 +765,30 @@ const styles = StyleSheet.create({
   },
   headerHomeButtonText: {
     color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  mobileActionBar: {
+    flexDirection: "row",
+    gap: UI.spacing.sm,
+    paddingHorizontal: UI.spacing.lg,
+    paddingVertical: UI.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+  },
+  mobileSecondaryButton: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: UI.radius.md,
+    backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mobileSecondaryButtonText: {
+    color: COLORS.text,
     fontSize: 12,
     fontWeight: "900",
   },
