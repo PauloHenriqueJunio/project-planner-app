@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { COLORS, UI } from "../constants/colors";
@@ -224,6 +225,8 @@ const StepItem = ({
 );
 
 export default function ProjectDetailScreen({ route, navigation }) {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 700;
   const { updateProject } = useContext(ProjectContext);
   const incomingSteps = route.params?.steps;
   const project = route.params?.project || {
@@ -298,16 +301,35 @@ export default function ProjectDetailScreen({ route, navigation }) {
     }
   };
 
+  const goHome = () => {
+    navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
+  };
+
+  const goTracking = () => {
+    navigation.navigate("Tracking", { project, steps });
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>Voltar</Text>
-        </TouchableOpacity>
+      <View style={[styles.header, isMobile && styles.headerMobile]}>
+        {!isMobile && (
+          <TouchableOpacity style={styles.headerTextButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backButton}>Voltar</Text>
+          </TouchableOpacity>
+        )}
         <Text style={styles.headerTitle} numberOfLines={1}>
           {project.name || project.titulo}
         </Text>
-        <View style={{ width: 50 }} />
+        {!isMobile && (
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.headerGhostButton} onPress={goHome}>
+              <Text style={styles.headerGhostButtonText}>HOME</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerPrimaryButton} onPress={goTracking}>
+              <Text style={styles.headerPrimaryButtonText}>Acompanhar</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       <View style={styles.progressSection}>
@@ -347,16 +369,26 @@ export default function ProjectDetailScreen({ route, navigation }) {
           />
         )}
         ListHeaderComponent={<Text style={styles.stepsTitle}>Etapas</Text>}
-        contentContainerStyle={styles.stepsList}
+        contentContainerStyle={[
+          styles.stepsList,
+          isMobile && styles.stepsListMobile,
+        ]}
         scrollEnabled
       />
 
-      <TouchableOpacity
-        style={styles.trackingButton}
-        onPress={() => navigation.navigate("Tracking", { project, steps })}
-      >
-        <Text style={styles.trackingButtonText}>Acompanhar progresso</Text>
-      </TouchableOpacity>
+      {isMobile && (
+        <View style={styles.mobileActionBar}>
+          <TouchableOpacity style={styles.mobileSecondaryButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.mobileSecondaryButtonText}>Voltar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.mobilePrimaryButton} onPress={goTracking}>
+            <Text style={styles.mobilePrimaryButtonText}>Acompanhar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.mobileSecondaryButton} onPress={goHome}>
+            <Text style={styles.mobileSecondaryButtonText}>HOME</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -372,6 +404,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
+  headerMobile: {
+    justifyContent: "center",
+    paddingHorizontal: UI.spacing.lg,
+  },
+  headerTextButton: {
+    width: 92,
+  },
   backButton: { fontSize: 14, color: COLORS.primary, fontWeight: "700" },
   headerTitle: {
     fontSize: 18,
@@ -379,6 +418,40 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     flex: 1,
     textAlign: "center",
+  },
+  headerActions: {
+    width: 210,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: UI.spacing.sm,
+  },
+  headerGhostButton: {
+    height: 36,
+    paddingHorizontal: UI.spacing.md,
+    borderRadius: UI.radius.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerGhostButtonText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  headerPrimaryButton: {
+    height: 36,
+    paddingHorizontal: UI.spacing.md,
+    borderRadius: UI.radius.md,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerPrimaryButtonText: {
+    color: COLORS.background,
+    fontSize: 12,
+    fontWeight: "900",
   },
   progressSection: {
     margin: UI.spacing.lg,
@@ -423,6 +496,7 @@ const styles = StyleSheet.create({
     marginBottom: UI.spacing.md,
   },
   stepsList: { paddingHorizontal: UI.spacing.lg, paddingBottom: 96 },
+  stepsListMobile: { paddingBottom: 112 },
   stepCard: {
     backgroundColor: COLORS.cardBg,
     borderRadius: UI.radius.lg,
@@ -546,17 +620,41 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
   },
-  trackingButton: {
-    marginHorizontal: UI.spacing.lg,
-    marginBottom: UI.spacing.lg,
-    paddingVertical: 14,
-    backgroundColor: COLORS.primary,
-    borderRadius: UI.radius.md,
-    alignItems: "center",
+  mobileActionBar: {
+    flexDirection: "row",
+    gap: UI.spacing.sm,
+    paddingHorizontal: UI.spacing.lg,
+    paddingVertical: UI.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    backgroundColor: COLORS.surface,
   },
-  trackingButtonText: {
-    fontSize: 14,
-    fontWeight: "800",
+  mobilePrimaryButton: {
+    flex: 1.4,
+    minHeight: 52,
+    borderRadius: UI.radius.md,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mobilePrimaryButtonText: {
     color: COLORS.background,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  mobileSecondaryButton: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: UI.radius.md,
+    backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mobileSecondaryButtonText: {
+    color: COLORS.text,
+    fontSize: 12,
+    fontWeight: "900",
   },
 });

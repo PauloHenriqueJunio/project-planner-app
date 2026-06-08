@@ -688,7 +688,14 @@ export default function CreateProjectScreen({ navigation, route }) {
           <Text style={styles.headerTitle}>
             {editingProject ? "Editar Projeto" : "Novo Projeto"}
           </Text>
-          <View style={{ width: 50 }} />
+          <TouchableOpacity
+            style={styles.headerHomeButton}
+            onPress={() =>
+              navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] })
+            }
+          >
+            <Text style={styles.headerHomeButtonText}>HOME</Text>
+          </TouchableOpacity>
         </View>
 
         <Text style={styles.pageSubtitle}>
@@ -721,6 +728,21 @@ const styles = StyleSheet.create({
   },
   backButton: { fontSize: 14, color: COLORS.primary, fontWeight: "700" },
   headerTitle: { fontSize: 20, fontWeight: "800", color: COLORS.text },
+  headerHomeButton: {
+    height: 36,
+    paddingHorizontal: UI.spacing.md,
+    borderRadius: UI.radius.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerHomeButtonText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: "900",
+  },
   content: { paddingBottom: 24 },
   pageSubtitle: {
     fontSize: 14,

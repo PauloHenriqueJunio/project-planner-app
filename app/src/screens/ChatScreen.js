@@ -91,6 +91,10 @@ export default function ChatScreen({ route, navigation }) {
     }
   };
 
+  const goHome = () => {
+    navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
+  };
+
   React.useEffect(() => {
     const timer = setTimeout(() => {
       scrollRef.current?.scrollToEnd({ animated: true });
@@ -154,16 +158,27 @@ export default function ChatScreen({ route, navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={[styles.header, isCompact && styles.headerCompact]}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>Voltar</Text>
-        </TouchableOpacity>
+        {!isCompact && (
+          <TouchableOpacity
+            style={styles.headerTextButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backButton}>Voltar</Text>
+          </TouchableOpacity>
+        )}
         <Text
           style={[styles.headerTitle, isCompact && styles.headerTitleCompact]}
           numberOfLines={1}
         >
           IA · {stepTitle}
         </Text>
-        <View style={{ width: 50 }} />
+        {!isCompact && (
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.headerGhostButton} onPress={goHome}>
+              <Text style={styles.headerGhostButtonText}>HOME</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       <Shell
@@ -201,6 +216,20 @@ export default function ChatScreen({ route, navigation }) {
             <React.Fragment key={item.id}>{renderMessage(item)}</React.Fragment>
           ))}
         </ScrollView>
+
+        {isCompact && (
+          <View style={styles.mobileNavBar}>
+            <TouchableOpacity
+              style={styles.mobileNavButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Text style={styles.mobileNavButtonText}>Voltar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.mobileNavButton} onPress={goHome}>
+              <Text style={styles.mobileNavButtonText}>HOME</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={[styles.inputBar, isCompact && styles.inputBarCompact]}>
           <View style={[styles.inputBox, isCompact && styles.inputBoxCompact]}>
@@ -249,6 +278,10 @@ const styles = StyleSheet.create({
   headerCompact: {
     paddingHorizontal: UI.spacing.md,
     paddingVertical: 10,
+    justifyContent: "center",
+  },
+  headerTextButton: {
+    width: 92,
   },
   backButton: { fontSize: 14, color: COLORS.primary, fontWeight: "700" },
   headerTitle: {
@@ -260,6 +293,25 @@ const styles = StyleSheet.create({
   },
   headerTitleCompact: {
     fontSize: 15,
+  },
+  headerActions: {
+    width: 92,
+    alignItems: "flex-end",
+  },
+  headerGhostButton: {
+    height: 36,
+    paddingHorizontal: UI.spacing.md,
+    borderRadius: UI.radius.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerGhostButtonText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: "900",
   },
   chatShell: {
     flex: 1,
@@ -403,6 +455,30 @@ const styles = StyleSheet.create({
   bubbleText: { color: COLORS.text, fontSize: 16, lineHeight: 24 },
   bubbleTextCompact: { fontSize: 14, lineHeight: 20 },
   bubbleTextUser: { color: COLORS.background, fontWeight: "600" },
+  mobileNavBar: {
+    flexDirection: "row",
+    gap: UI.spacing.sm,
+    paddingHorizontal: UI.spacing.md,
+    paddingVertical: UI.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+  },
+  mobileNavButton: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: UI.radius.md,
+    backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mobileNavButtonText: {
+    color: COLORS.text,
+    fontSize: 12,
+    fontWeight: "900",
+  },
   inputBar: {
     flexDirection: "row",
     alignItems: "flex-end",

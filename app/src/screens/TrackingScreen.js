@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { COLORS, UI } from "../constants/colors";
@@ -21,6 +22,8 @@ function normalizeSteps(input) {
 }
 
 export default function TrackingScreen({ route, navigation }) {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 700;
   const routeProject = route.params?.project;
   const routeSteps = route.params?.steps || [];
 
@@ -46,17 +49,34 @@ export default function TrackingScreen({ route, navigation }) {
     ? Math.round((completedCount / totalSteps) * 100)
     : 0;
 
+  const goHome = () => {
+    navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>Voltar</Text>
-        </TouchableOpacity>
+      <View style={[styles.header, isMobile && styles.headerMobile]}>
+        {!isMobile && (
+          <TouchableOpacity style={styles.headerTextButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backButton}>Voltar</Text>
+          </TouchableOpacity>
+        )}
         <Text style={styles.headerTitle}>Acompanhamento</Text>
-        <View style={{ width: 50 }} />
+        {!isMobile && (
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.headerGhostButton} onPress={goHome}>
+              <Text style={styles.headerGhostButtonText}>HOME</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerPrimaryButton} onPress={() => navigation.goBack()}>
+              <Text style={styles.headerPrimaryButtonText}>Projeto</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[styles.content, isMobile && styles.contentMobile]}
+      >
         <View style={styles.heroCard}>
           <Text style={styles.heroLabel}>Projeto</Text>
           <Text style={styles.heroTitle}>{project.name || project.titulo}</Text>
@@ -142,14 +162,19 @@ export default function TrackingScreen({ route, navigation }) {
         )}
       </ScrollView>
 
-      <View style={styles.actionButton}>
-        <TouchableOpacity
-          style={styles.markCompleteButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.markCompleteText}>Voltar ao projeto</Text>
-        </TouchableOpacity>
-      </View>
+      {isMobile && (
+        <View style={styles.mobileActionBar}>
+          <TouchableOpacity
+            style={styles.mobilePrimaryButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.mobilePrimaryButtonText}>Projeto</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.mobileSecondaryButton} onPress={goHome}>
+            <Text style={styles.mobileSecondaryButtonText}>HOME</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -184,6 +209,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
+  headerMobile: {
+    justifyContent: "center",
+  },
+  headerTextButton: {
+    width: 92,
+  },
   backButton: {
     fontSize: 14,
     color: COLORS.primary,
@@ -196,9 +227,46 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "center",
   },
+  headerActions: {
+    width: 190,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: UI.spacing.sm,
+  },
+  headerGhostButton: {
+    height: 36,
+    paddingHorizontal: UI.spacing.md,
+    borderRadius: UI.radius.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerGhostButtonText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  headerPrimaryButton: {
+    height: 36,
+    paddingHorizontal: UI.spacing.md,
+    borderRadius: UI.radius.md,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerPrimaryButtonText: {
+    color: COLORS.background,
+    fontSize: 12,
+    fontWeight: "900",
+  },
   content: {
     padding: UI.spacing.lg,
     paddingBottom: 100,
+  },
+  contentMobile: {
+    paddingBottom: 112,
   },
   heroCard: {
     backgroundColor: COLORS.surface,
@@ -340,22 +408,41 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     lineHeight: 18,
   },
-  actionButton: {
+  mobileActionBar: {
+    flexDirection: "row",
+    gap: UI.spacing.sm,
     paddingHorizontal: UI.spacing.lg,
     paddingVertical: UI.spacing.md,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.surface,
   },
-  markCompleteButton: {
-    paddingVertical: 13,
+  mobilePrimaryButton: {
+    flex: 1.4,
+    minHeight: 52,
     backgroundColor: COLORS.primary,
     borderRadius: UI.radius.md,
     alignItems: "center",
+    justifyContent: "center",
   },
-  markCompleteText: {
-    fontSize: 14,
-    fontWeight: "800",
+  mobilePrimaryButtonText: {
+    fontSize: 13,
+    fontWeight: "900",
     color: COLORS.background,
+  },
+  mobileSecondaryButton: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: UI.radius.md,
+    backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mobileSecondaryButtonText: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: COLORS.text,
   },
 });
