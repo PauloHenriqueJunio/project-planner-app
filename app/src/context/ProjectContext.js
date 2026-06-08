@@ -1,5 +1,4 @@
 import React, { createContext, useCallback, useEffect, useMemo, useState } from "react";
-import { Alert } from "react-native";
 let AsyncStorage;
 try {
   AsyncStorage = require("@react-native-async-storage/async-storage").default;

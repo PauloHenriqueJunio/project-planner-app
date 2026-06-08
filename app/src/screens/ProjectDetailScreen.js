@@ -1,7 +1,9 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   FlatList,
   Linking,
+  Platform,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -9,6 +11,8 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 import { COLORS, UI } from "../constants/colors";
 import { ProjectContext } from "../context/ProjectContext";
 
@@ -30,6 +34,243 @@ function normalizeUrl(rawUrl) {
   if (/^https?:\/\//i.test(candidate)) return candidate;
   if (/^www\./i.test(candidate)) return `https://${candidate}`;
   return "";
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function buildProjectPdfHtml({ project, steps, completedCount, progressPercent }) {
+  const projectName = project.name || project.titulo || "Projeto Sem Nome";
+  const category =
+    project.categoriaDetectada || project.categoria || "Nao identificada";
+  const generatedAt = new Date().toLocaleString("pt-BR");
+  const totalSubtasks = steps.reduce(
+    (sum, step) => sum + (step.subtaskList || []).length,
+    0,
+  );
+  const completedSubtasks = steps.reduce(
+    (sum, step) =>
+      sum + (step.subtaskList || []).filter((subtask) => subtask.completed).length,
+    0,
+  );
+
+  const stepItems = steps
+    .map((step, stepIdx) => {
+      const subtasks = (step.subtaskList || [])
+        .map((subtask) => {
+          const links = (subtask.links || [])
+            .map(
+              (link) =>
+                `<li><a href="${escapeHtml(link.url)}">${escapeHtml(
+                  link.label || link.url,
+                )}</a></li>`,
+            )
+            .join("");
+
+          return `
+            <div class="subtask">
+              <div class="subtask-title">
+                <span class="${subtask.completed ? "status done" : "status"}">
+                  ${subtask.completed ? "Concluida" : "Pendente"}
+                </span>
+                ${escapeHtml(subtask.title)}
+              </div>
+              ${
+                subtask.description
+                  ? `<p>${escapeHtml(subtask.description)}</p>`
+                  : ""
+              }
+              ${links ? `<ul class="links">${links}</ul>` : ""}
+            </div>
+          `;
+        })
+        .join("");
+
+      return `
+        <section class="step">
+          <div class="step-heading">
+            <span class="step-number">${stepIdx + 1}</span>
+            <div>
+              <h2>${escapeHtml(step.title)}</h2>
+              ${
+                step.description
+                  ? `<p class="step-description">${escapeHtml(step.description)}</p>`
+                  : ""
+              }
+            </div>
+            <span class="${step.completed ? "badge done" : "badge"}">
+              ${step.completed ? "Concluida" : "Pendente"}
+            </span>
+          </div>
+          ${subtasks || '<p class="empty">Sem subtarefas cadastradas.</p>'}
+        </section>
+      `;
+    })
+    .join("");
+
+  return `
+    <!doctype html>
+    <html lang="pt-BR">
+      <head>
+        <meta charset="utf-8" />
+        <title>${escapeHtml(projectName)}</title>
+        <style>
+          * { box-sizing: border-box; }
+          body {
+            margin: 0;
+            padding: 32px;
+            color: #0f172a;
+            background: #f8fafc;
+            font-family: Arial, Helvetica, sans-serif;
+            line-height: 1.45;
+          }
+          .page {
+            max-width: 820px;
+            margin: 0 auto;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 32px;
+          }
+          h1 { margin: 0 0 8px; font-size: 28px; }
+          h2 { margin: 0; font-size: 18px; }
+          p { margin: 6px 0 0; }
+          .meta { color: #475569; font-size: 13px; }
+          .summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin: 24px 0;
+          }
+          .summary-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px;
+            background: #f8fafc;
+          }
+          .summary-label {
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+          }
+          .summary-value {
+            display: block;
+            margin-top: 6px;
+            color: #0284c7;
+            font-size: 22px;
+            font-weight: 800;
+          }
+          .progress {
+            height: 10px;
+            background: #e2e8f0;
+            border-radius: 999px;
+            overflow: hidden;
+            margin: 8px 0 24px;
+          }
+          .progress-fill {
+            width: ${progressPercent}%;
+            height: 100%;
+            background: #0284c7;
+          }
+          .step {
+            border-top: 1px solid #e2e8f0;
+            padding-top: 20px;
+            margin-top: 20px;
+            break-inside: avoid;
+          }
+          .step-heading {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+          }
+          .step-number {
+            min-width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            background: #e0f2fe;
+            color: #0369a1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+          }
+          .step-description, .subtask p, .empty {
+            color: #475569;
+            font-size: 13px;
+          }
+          .badge, .status {
+            border: 1px solid #cbd5e1;
+            border-radius: 999px;
+            color: #475569;
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 4px 8px;
+            white-space: nowrap;
+          }
+          .badge { margin-left: auto; }
+          .done {
+            border-color: #86efac;
+            background: #dcfce7;
+            color: #166534;
+          }
+          .subtask {
+            margin-left: 42px;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+          }
+          .subtask-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 800;
+          }
+          .links {
+            margin: 8px 0 0 20px;
+            padding: 0;
+            font-size: 13px;
+          }
+          a { color: #0284c7; }
+          @media print {
+            body { background: #ffffff; padding: 0; }
+            .page { border: 0; border-radius: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <main class="page">
+          <h1>${escapeHtml(projectName)}</h1>
+          <p class="meta">Categoria: ${escapeHtml(category)}</p>
+          <p class="meta">Gerado em ${escapeHtml(generatedAt)}</p>
+
+          <div class="summary">
+            <div class="summary-card">
+              <span class="summary-label">Progresso</span>
+              <span class="summary-value">${progressPercent}%</span>
+            </div>
+            <div class="summary-card">
+              <span class="summary-label">Etapas</span>
+              <span class="summary-value">${completedCount}/${steps.length}</span>
+            </div>
+            <div class="summary-card">
+              <span class="summary-label">Subtarefas</span>
+              <span class="summary-value">${completedSubtasks}/${totalSubtasks}</span>
+            </div>
+          </div>
+
+          <div class="progress"><div class="progress-fill"></div></div>
+          ${stepItems || '<p class="empty">Sem etapas cadastradas.</p>'}
+        </main>
+      </body>
+    </html>
+  `;
 }
 
 function normalizeSubtasks(step, stepIdx) {
@@ -309,6 +550,48 @@ export default function ProjectDetailScreen({ route, navigation }) {
     navigation.navigate("Tracking", { project, steps });
   };
 
+  const exportProjectPdf = async () => {
+    const html = buildProjectPdfHtml({
+      project,
+      steps,
+      completedCount,
+      progressPercent,
+    });
+
+    try {
+      if (Platform.OS === "web") {
+        const printWindow = globalThis.window?.open("", "_blank");
+        if (!printWindow) {
+          alert("Nao foi possivel abrir a janela de impressao.");
+          return;
+        }
+
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => printWindow.print(), 250);
+        return;
+      }
+
+      const { uri } = await Print.printToFileAsync({ html });
+      const canShare = await Sharing.isAvailableAsync();
+
+      if (canShare) {
+        await Sharing.shareAsync(uri, {
+          mimeType: "application/pdf",
+          dialogTitle: "Exportar projeto em PDF",
+          UTI: "com.adobe.pdf",
+        });
+        return;
+      }
+
+      Alert.alert("PDF gerado", `Arquivo salvo em:\n${uri}`);
+    } catch (_error) {
+      Alert.alert("Erro", "Nao foi possivel exportar o PDF agora.");
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={[styles.header, isMobile && styles.headerMobile]}>
@@ -324,6 +607,9 @@ export default function ProjectDetailScreen({ route, navigation }) {
           <View style={styles.headerActions}>
             <TouchableOpacity style={styles.headerGhostButton} onPress={goHome}>
               <Text style={styles.headerGhostButtonText}>HOME</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.headerGhostButton} onPress={exportProjectPdf}>
+              <Text style={styles.headerGhostButtonText}>PDF</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.headerPrimaryButton} onPress={goTracking}>
               <Text style={styles.headerPrimaryButtonText}>Acompanhar</Text>
@@ -383,6 +669,9 @@ export default function ProjectDetailScreen({ route, navigation }) {
           </TouchableOpacity>
           <TouchableOpacity style={styles.mobilePrimaryButton} onPress={goTracking}>
             <Text style={styles.mobilePrimaryButtonText}>Acompanhar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.mobileSecondaryButton} onPress={exportProjectPdf}>
+            <Text style={styles.mobileSecondaryButtonText}>PDF</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.mobileSecondaryButton} onPress={goHome}>
             <Text style={styles.mobileSecondaryButtonText}>HOME</Text>

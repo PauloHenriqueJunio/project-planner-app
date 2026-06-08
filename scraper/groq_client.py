@@ -96,8 +96,12 @@ def generate_chat_response(subtask: str, message: str, history: list | None = No
     # modo mock
     if GROQ_API_KEY and (GROQ_API_KEY == "mock" or GROQ_API_KEY.startswith("test")):
         return (
-            f"Mock assistant: Para a sub-tarefa '{subtask}', aqui vai uma orientação prática sobre '{message}'.\n"
-            "1) Verifique o material necessário\n2) Execute o passo inicial\n3) Teste e ajuste conforme necessário."
+            "O que fazer:\n"
+            f"1. Para a sub-tarefa '{subtask}', comece organizando o que voce ja tem.\n"
+            f"2. Depois execute o primeiro passo relacionado a: '{message}'.\n"
+            "3. Confira o resultado e ajuste antes de seguir.\n\n"
+            "Por que isso ajuda:\n"
+            "Esse caminho reduz tentativa e erro, deixa a tarefa mais controlada e evita pular uma etapa importante."
         )
 
     # construir prompt conversacional em português
@@ -112,11 +116,19 @@ def generate_chat_response(subtask: str, message: str, history: list | None = No
     history_text = "\n".join(history_lines)
     prompt = (
         "Você é um assistente prático que ajuda um usuário a executar sub-tarefas de um projeto. "
-        "Receba o contexto da sub-tarefa e a mensagem do usuário e responda em português com passos práticos, exemplos e esclarecimentos quando necessário.\n\n"
+        "Receba o contexto da sub-tarefa e a mensagem do usuário e responda em português com passos práticos, exemplos e esclarecimentos quando necessário. "
+        "A resposta deve ser explicável: além de dizer o que fazer, diga de forma curta por que a sugestão faz sentido para aquela sub-tarefa.\n\n"
         f"Contexto da sub-tarefa:\n{subtask}\n\n"
         f"Histórico:\n{history_text}\n\n"
         f"Mensagem do usuário:\n{message}\n\n"
-        "Responda de forma clara e prática, com passos numerados quando apropriado."
+        "Formato desejado:\n"
+        "O que fazer:\n"
+        "- Dê de 1 a 4 orientações objetivas, com passos numerados quando apropriado.\n\n"
+        "Por que isso ajuda:\n"
+        "- Explique em 1 ou 2 frases o motivo da recomendação.\n\n"
+        "Atenção:\n"
+        "- Inclua esta seção apenas se houver risco, erro comum, custo desnecessário, privacidade ou segurança envolvida.\n\n"
+        "Não use markdown pesado. Seja direto, amigável e específico ao contexto."
     )
 
     data = call_groq(prompt, max_tokens=max_tokens)

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useContext, useMemo, useState } from "react";
 import {
   KeyboardAvoidingView,
   Linking,
@@ -15,124 +15,85 @@ import {
 } from "react-native";
 import { COLORS, UI } from "../constants/colors";
 import { API_BASE } from "../constants/config";
-
-async function readResponseBody(resp) {
-  const text = await resp.text();
-  if (!text) return {};
-
-  try {
-    return JSON.parse(text);
-  } catch (_error) {
-    return { detail: text };
-  }
-}
-
-function getErrorMessage(error) {
-  if (error?.message) return error.message;
-  return "Não foi possível contactar o agente.";
-}
-
-const PRODUCT_HINTS = [
-  {
-    label: "shampoo automotivo",
-    aliases: [
-      "shampoo automotivo",
-      "xampu automotivo",
-      "shampoo de carro",
-      "xampu de carro",
-    ],
-  },
-  { label: "cera automotiva", aliases: ["cera automotiva", "cera de carro"] },
-  {
-    label: "pano de microfibra",
-    aliases: ["microfibra", "pano de microfibra", "flanela"],
-  },
-  { label: "limpa vidros automotivo", aliases: ["limpa vidros", "limpador de vidro"] },
-  { label: "pretinho para pneu", aliases: ["pretinho", "pretinho para pneu", "limpa pneu"] },
-  { label: "balde", aliases: ["balde"] },
-  { label: "esponja automotiva", aliases: ["esponja", "esponja automotiva"] },
-  { label: "detergente neutro", aliases: ["detergente neutro", "detergente"] },
-];
-
-function normalizeText(text) {
-  return String(text || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
-function cleanProductName(value) {
-  return String(value || "")
-    .replace(/\b(esse|essa|este|esta|o|a|um|uma)\b/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function findProductHint(text) {
-  const normalized = normalizeText(text);
-  const found = PRODUCT_HINTS.find((hint) =>
-    hint.aliases.some((alias) => normalized.includes(normalizeText(alias))),
-  );
-  return found?.label || "";
-}
-
-function detectMissingProduct(message, fallbackContext) {
-  const normalized = normalizeText(message);
-  const hasMissingIntent = [
-    "nao tenho",
-    "nao possuo",
-    "estou sem",
-    "to sem",
-    "falta",
-    "preciso comprar",
-    "nao encontrei",
-  ].some((term) => normalized.includes(term));
-
-  if (!hasMissingIntent) return null;
-
-  const hintedProduct = findProductHint(message);
-  if (hintedProduct) return hintedProduct;
-
-  const directMatch = normalized.match(
-    /(?:nao tenho|nao possuo|estou sem|to sem|falta|preciso comprar|nao encontrei)\s+(?:um|uma|o|a|esse|essa|este|esta)?\s*([^.,;!?]+)/,
-  );
-  const directProduct = cleanProductName(directMatch?.[1]);
-  if (directProduct && !["produto", "item", "material", "isso"].includes(directProduct)) {
-    return directProduct;
-  }
-
-  return findProductHint(fallbackContext) || "produto necessario";
-}
-
-function buildOnlineLinks(product) {
-  const query = encodeURIComponent(product);
-  return [
-    `Mercado Livre: https://lista.mercadolivre.com.br/${query}`,
-    `Amazon: https://www.amazon.com.br/s?k=${query}`,
-    `Shopee: https://shopee.com.br/search?keyword=${query}`,
-  ];
-}
-
-function buildMapsSearchUrl(place) {
-  const query = encodeURIComponent(
-    [place?.name, place?.address].filter(Boolean).join(" "),
-  );
-  return `https://www.google.com/maps/search/?api=1&query=${query}`;
-}
+import { ProjectContext } from "../context/ProjectContext";
+import { fetchNearbyPlaces, getCurrentLocation } from "../services/placesService";
+import {
+  buildChatHistoryKey,
+  buildInitialMessages,
+  buildMapsSearchUrl,
+  buildOnlineLinks,
+  detectMissingProduct,
+  getErrorMessage,
+  readResponseBody,
+} from "../utils/chatHelpers";
 
 export default function ChatScreen({ route, navigation }) {
-  const { stepTitle, subtask } = route.params || {};
+  const { project, stepTitle, subtask } = route.params || {};
+  const { projects, updateProject } = useContext(ProjectContext);
   const { height, width } = useWindowDimensions();
   const isCompact = width < 480 || height < 720;
   const scrollRef = React.useRef(null);
+  const loadedChatKeyRef = React.useRef("");
+  const isHydratingChatRef = React.useRef(false);
   const Shell = Platform.OS === "web" ? View : KeyboardAvoidingView;
-  const [messages, setMessages] = useState([
-    { id: "0", from: "assistant", text: `Contexto da sub-tarefa: ${subtask}` },
-  ]);
+  const projectId = project?.id;
+  const chatHistoryKey = useMemo(
+    () => buildChatHistoryKey(stepTitle, subtask),
+    [stepTitle, subtask],
+  );
+  const initialMessages = useMemo(() => buildInitialMessages(subtask), [subtask]);
+  const storedProject = useMemo(
+    () => projects.find((item) => item.id === projectId),
+    [projects, projectId],
+  );
+  const storedMessages = storedProject?.chatHistories?.[chatHistoryKey]?.messages;
+  const [messages, setMessages] = useState(() =>
+    Array.isArray(storedMessages) && storedMessages.length
+      ? storedMessages
+      : initialMessages,
+  );
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [purchasePrompt, setPurchasePrompt] = useState(null);
   const [isFindingPlaces, setIsFindingPlaces] = useState(false);
+
+  React.useEffect(() => {
+    if (projectId && !storedProject) return;
+
+    const storageKey = `${projectId || "sem-projeto"}:${chatHistoryKey}`;
+    if (loadedChatKeyRef.current === storageKey) return;
+
+    loadedChatKeyRef.current = storageKey;
+    if (Array.isArray(storedMessages) && storedMessages.length) {
+      isHydratingChatRef.current = true;
+      setMessages(storedMessages);
+      return;
+    }
+
+    setMessages(initialMessages);
+  }, [chatHistoryKey, initialMessages, projectId, storedMessages, storedProject]);
+
+  React.useEffect(() => {
+    if (!projectId) return;
+    if (loadedChatKeyRef.current !== `${projectId}:${chatHistoryKey}`) return;
+    if (isHydratingChatRef.current) {
+      isHydratingChatRef.current = false;
+      return;
+    }
+
+    updateProject(projectId, (prev) => ({
+      ...prev,
+      chatHistories: {
+        ...(prev.chatHistories || {}),
+        [chatHistoryKey]: {
+          stepTitle: stepTitle || "",
+          subtask: subtask || "",
+          updatedAt: new Date().toISOString(),
+          messages,
+        },
+      },
+    }));
+  }, [chatHistoryKey, messages, projectId, stepTitle, subtask, updateProject]);
 
   const addAssistantMessage = (text) => {
     setMessages((m) => [
@@ -200,7 +161,6 @@ export default function ChatScreen({ route, navigation }) {
       };
       setMessages((m) => [...m, assistantMsg]);
     } catch (err) {
-      console.error(err);
       setMessages((m) => [
         ...m,
         {
@@ -228,60 +188,28 @@ export default function ChatScreen({ route, navigation }) {
     );
   };
 
-  const fetchNearbyPlaces = async (product, latitude, longitude) => {
-    const response = await fetch(`${API_BASE}/places/nearby`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        product,
-        lat: latitude,
-        lng: longitude,
-        radius_meters: 5000,
-        max_results: 5,
-      }),
-    });
-    const data = await readResponseBody(response);
-    if (!response.ok) {
-      const detail = data.detail || data.error || `HTTP ${response.status}`;
-      throw new Error(String(detail));
-    }
-    return Array.isArray(data.places) ? data.places : [];
-  };
-
-  const openNearbyStores = (product) => {
-    const geolocation = globalThis.navigator?.geolocation;
-    if (!geolocation) {
-      suggestOnlinePurchase(product);
-      return;
-    }
+  const openNearbyStores = async (product) => {
+    if (!product || isFindingPlaces) return;
 
     setIsFindingPlaces(true);
-    geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords || {};
-        try {
-          const places = await fetchNearbyPlaces(product, latitude, longitude);
-          setPurchasePrompt(null);
-          if (places.length) {
-            addPlacesMessage(product, places);
-          } else {
-            suggestOnlinePurchase(product);
-          }
-        } catch (error) {
-          addAssistantMessage(
-            `Nao consegui buscar lojas proximas agora: ${getErrorMessage(error)}`,
-          );
-          suggestOnlinePurchase(product);
-        } finally {
-          setIsFindingPlaces(false);
-        }
-      },
-      () => {
-        setIsFindingPlaces(false);
+    try {
+      const { latitude, longitude } = await getCurrentLocation();
+      const places = await fetchNearbyPlaces(product, latitude, longitude);
+      setPurchasePrompt(null);
+      if (places.length) {
+        addPlacesMessage(product, places);
+      } else {
         suggestOnlinePurchase(product);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
-    );
+      }
+    } catch (error) {
+      setPurchasePrompt(null);
+      addAssistantMessage(
+        `Nao consegui acessar sua localizacao agora: ${getErrorMessage(error)}`,
+      );
+      suggestOnlinePurchase(product);
+    } finally {
+      setIsFindingPlaces(false);
+    }
   };
 
   React.useEffect(() => {

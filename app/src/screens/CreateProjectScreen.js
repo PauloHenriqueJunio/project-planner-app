@@ -378,7 +378,6 @@ export default function CreateProjectScreen({ navigation, route }) {
 
       setGeneratedSteps(mapped);
     } catch (err) {
-      console.error(err);
       show(`Erro ao gerar plano: ${err.message}`);
     } finally {
       setLoadingPlan(false);
