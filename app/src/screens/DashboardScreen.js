@@ -1,4 +1,8 @@
+<<<<<<< HEAD
+import React, { useEffect, useState } from "react";
+=======
 import React, { useContext } from "react";
+>>>>>>> main
 import {
   Alert,
   FlatList,
@@ -9,23 +13,27 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+<<<<<<< HEAD
+import { COLORS } from "../constants/colors";
+import { getProjects } from "../storage/projectStorage";
+=======
 import { COLORS, UI } from "../constants/colors";
 import { ProjectContext } from "../context/ProjectContext";
+>>>>>>> main
 
-const mockProjects = [
-  {
-    id: "1",
-    name: "App de Planejamento",
-    progress: 65,
-    description: "Desenvolvendo aplicativo móvel",
-  },
-  {
-    id: "2",
-    name: "Curso React Native",
-    progress: 40,
-    description: "Aprendizado de desenvolvimento mobile",
-  },
-];
+function normalizeProject(project) {
+  return {
+    ...project,
+    name: project.name || project.titulo || "Projeto sem nome",
+    progress:
+      typeof project.progress === "number"
+        ? project.progress
+        : typeof project.progresso === "number"
+          ? project.progresso
+          : 0,
+    description: project.description || project.descricao || "Sem descrição",
+  };
+}
 
 const ProgressBar = ({ progress }) => (
   <View style={styles.progressContainer}>
@@ -84,6 +92,22 @@ const ProjectCard = ({ project, onPress, onEdit, onDelete }) => {
 };
 
 export default function DashboardScreen({ navigation }) {
+<<<<<<< HEAD
+  const [projects, setProjects] = useState([]);
+
+  const loadProjects = async () => {
+    const storedProjects = await getProjects();
+    setProjects(storedProjects.map(normalizeProject).reverse());
+  };
+
+  useEffect(() => {
+    loadProjects();
+
+    const unsubscribe = navigation.addListener("focus", loadProjects);
+
+    return unsubscribe;
+  }, [navigation]);
+=======
   const { projects, deleteProject } = useContext(ProjectContext);
   const visibleProjects = projects && projects.length ? projects : mockProjects;
   const totalProjects = visibleProjects.length;
@@ -91,6 +115,7 @@ export default function DashboardScreen({ navigation }) {
     visibleProjects.reduce((sum, project) => sum + getProgress(project), 0) /
       Math.max(totalProjects, 1),
   );
+>>>>>>> main
 
   const handleViewDetails = (project) => {
     navigation.navigate("ProjectDetail", {
@@ -145,7 +170,11 @@ export default function DashboardScreen({ navigation }) {
       </View>
 
       <FlatList
+<<<<<<< HEAD
+        data={projects}
+=======
         data={visibleProjects}
+>>>>>>> main
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <ProjectCard
@@ -155,11 +184,27 @@ export default function DashboardScreen({ navigation }) {
             onDelete={() => handleDeleteProject(item)}
           />
         )}
+<<<<<<< HEAD
+        contentContainerStyle={
+          projects.length === 0 ? styles.emptyContent : styles.listContent
+        }
+        scrollEnabled={true}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateTitle}>Nenhum projeto ainda</Text>
+            <Text style={styles.emptyStateText}>
+              Crie seu primeiro projeto para começar a gerar etapas e acompanhar
+              o progresso.
+            </Text>
+          </View>
+        }
+=======
         ListHeaderComponent={
           <Text style={styles.sectionTitle}>Projetos recentes</Text>
         }
         contentContainerStyle={styles.listContent}
         scrollEnabled
+>>>>>>> main
       />
     </SafeAreaView>
   );
@@ -228,11 +273,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: UI.spacing.lg,
     paddingBottom: 32,
   },
+<<<<<<< HEAD
+  emptyContent: {
+    flexGrow: 1,
+    padding: 16,
+    justifyContent: "center",
+  },
+  emptyState: {
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  emptyStateTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+=======
   sectionTitle: {
     color: COLORS.text,
     fontSize: 16,
     fontWeight: "800",
     marginBottom: UI.spacing.md,
+>>>>>>> main
   },
   projectCard: {
     backgroundColor: COLORS.cardBg,

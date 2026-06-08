@@ -1,0 +1,60 @@
+[
+  {
+    "id": "1779207527238",
+    "titulo": "Criar um site de barbeiro",
+    "name": "Criar um site de barbeiro",
+    "descricao": "",
+    "prioridade": "Média",
+    "categoria": "Desenvolvimento de software ",
+    "categoriaDetectada": "Desenvolvimento de software ",
+    "progresso": 0,
+    "scraped": true,
+    "etapas": [
+      {
+        "id": "1779207527238-0",
+        "titulo": "Definir o Banco de Dados",
+        "subetapas": [
+          "Escolher o banco de dados (ex: PostgreSQL, MySQL)",
+          "Criar tabelas para cadastro de clientes, produtos e pedidos"
+        ],
+        "completed": false
+      },
+      {
+        "id": "1779207527238-1",
+        "titulo": "Configurar o Framework",
+        "subetapas": [
+          "Escolher um framework JavaScript (ex: React, Vue.js)",
+          "Instalar e configurar o framework de acordo com as necessidades do projeto"
+        ],
+        "completed": false
+      },
+      {
+        "id": "1779207527238-2",
+        "titulo": "Desenvolver a Interface do Usuário",
+        "subetapas": [
+          "Criar formulários para cadastro e login",
+          "Implementar um sistema de busca de produtos"
+        ],
+        "completed": false
+      },
+      {
+        "id": "1779207527238-3",
+        "titulo": "Implementar o Sistema de Pedidos",
+        "subetapas": [
+          "Criar uma interface para adicionar, editar e visualizar pedidos",
+          "Implementar o sistema de pagamento (ex: Stripe, PayPal)"
+        ],
+        "completed": false
+      },
+      {
+        "id": "1779207527238-4",
+        "titulo": "Testes e Depuração",
+        "subetapas": [
+          "Realizar testes unitários e de integração",
+          "Corrigir bugs e otimizar o desempenho"
+        ],
+        "completed": false
+      }
+    ]
+  }
+]

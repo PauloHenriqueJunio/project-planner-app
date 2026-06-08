@@ -1,4 +1,8 @@
+<<<<<<< HEAD
+import React, { useMemo, useState } from "react";
+=======
 import React, { useContext, useEffect, useMemo, useState } from "react";
+>>>>>>> main
 import {
   FlatList,
   Linking,
@@ -6,6 +10,71 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+<<<<<<< HEAD
+  Pressable,
+} from "react-native";
+import { COLORS } from "../constants/colors";
+import { updateProject } from "../storage/projectStorage";
+
+const StepItem = ({ step, onToggle }) => {
+  return (
+    <Pressable style={styles.stepCard} onPress={() => onToggle(step.id)}>
+      <View style={styles.stepHeader}>
+        <Pressable
+          style={[styles.checkbox, step.completed && styles.checkboxCompleted]}
+          onPress={() => onToggle(step.id)}
+        >
+          {step.completed && <Text style={styles.checkmark}>✓</Text>}
+        </Pressable>
+
+        <View style={styles.stepInfo}>
+          <Text
+            style={[
+              styles.stepTitle,
+              step.completed && styles.stepTitleCompleted,
+            ]}
+          >
+            {step.title}
+          </Text>
+          <Text style={styles.stepDescription} numberOfLines={2}>
+            {step.subetapas?.join(" • ") || "Sem subetapas geradas"}
+          </Text>
+        </View>
+      </View>
+    </Pressable>
+  );
+};
+
+export default function ProjectDetailScreen({ route, navigation }) {
+  const projectFromRoute = route.params?.project || {
+    id: "1",
+    titulo: "Projeto Sem Nome",
+    name: "Projeto Sem Nome",
+    etapas: [],
+    progresso: 0,
+  };
+
+  const [project, setProject] = useState(projectFromRoute);
+
+  const steps = useMemo(() => {
+    return (project.etapas || []).map((step, index) => ({
+      id: step.id || `${project.id}-${index}`,
+      titulo: step.titulo || step.title || `Etapa ${index + 1}`,
+      title: step.title || step.titulo || `Etapa ${index + 1}`,
+      subetapas: step.subetapas || [],
+      completed: Boolean(step.completed),
+    }));
+  }, [project]);
+
+  const persistProject = async (nextProject) => {
+    setProject(nextProject);
+    await updateProject(nextProject);
+  };
+
+  const toggleStep = async (stepId) => {
+    const nextSteps = steps.map((step) =>
+      step.id === stepId ? { ...step, completed: !step.completed } : step,
+=======
   View,
 } from "react-native";
 import { COLORS, UI } from "../constants/colors";
@@ -235,9 +304,31 @@ export default function ProjectDetailScreen({ route, navigation }) {
           subtaskList: nextSubtasks,
         };
       }),
+>>>>>>> main
     );
+
+    const completedCount = nextSteps.filter((step) => step.completed).length;
+    const totalSteps = nextSteps.length;
+    const progressPercent = totalSteps
+      ? Math.round((completedCount / totalSteps) * 100)
+      : 0;
+
+    const nextProject = {
+      ...project,
+      etapas: nextSteps,
+      progresso: progressPercent,
+    };
+
+    await persistProject(nextProject);
   };
 
+<<<<<<< HEAD
+  const completedCount = steps.filter((s) => s.completed).length;
+  const totalSteps = steps.length;
+  const progressPercent = totalSteps
+    ? Math.round((completedCount / totalSteps) * 100)
+    : 0;
+=======
   const toggleSubtask = (stepId, subtaskId) => {
     setSteps((prev) =>
       prev.map((step) => {
@@ -269,6 +360,7 @@ export default function ProjectDetailScreen({ route, navigation }) {
       alert("Não foi possível abrir este link.");
     }
   };
+>>>>>>> main
 
   return (
     <SafeAreaView style={styles.container}>
@@ -276,13 +368,23 @@ export default function ProjectDetailScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backButton}>Voltar</Text>
         </TouchableOpacity>
+<<<<<<< HEAD
+        <Text style={styles.headerTitle}>{project.titulo || project.name}</Text>
+=======
         <Text style={styles.headerTitle} numberOfLines={1}>
           {project.name}
         </Text>
+>>>>>>> main
         <View style={{ width: 50 }} />
       </View>
 
       <View style={styles.progressSection}>
+        <Text style={styles.categoryText}>
+          Categoria:{" "}
+          {project.categoriaDetectada ||
+            project.categoria ||
+            "Não identificada"}
+        </Text>
         <View style={styles.progressInfo}>
           <View>
             <Text style={styles.progressLabel}>Progresso do projeto</Text>
@@ -314,6 +416,19 @@ export default function ProjectDetailScreen({ route, navigation }) {
         )}
         ListHeaderComponent={<Text style={styles.stepsTitle}>Etapas</Text>}
         contentContainerStyle={styles.stepsList}
+<<<<<<< HEAD
+        scrollEnabled={true}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateTitle}>Nenhuma etapa gerada</Text>
+            <Text style={styles.emptyStateText}>
+              Este projeto foi salvo no modo manual. Você pode adicionar etapas
+              depois.
+            </Text>
+          </View>
+        }
+=======
+>>>>>>> main
       />
 
       <TouchableOpacity
@@ -353,6 +468,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     ...UI.shadow,
+  },
+  categoryText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginBottom: 10,
+    fontWeight: "600",
   },
   progressInfo: {
     flexDirection: "row",
@@ -493,7 +614,30 @@ const styles = StyleSheet.create({
     borderRadius: UI.radius.md,
     marginTop: UI.spacing.sm,
   },
+<<<<<<< HEAD
+  emptyState: {
+    padding: 20,
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginHorizontal: 16,
+    marginTop: 12,
+  },
+  emptyStateTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  emptyStateText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+=======
   chatButtonText: { color: COLORS.textSecondary, fontSize: 12, fontWeight: "800" },
+>>>>>>> main
   trackingButton: {
     marginHorizontal: UI.spacing.lg,
     marginBottom: UI.spacing.lg,
