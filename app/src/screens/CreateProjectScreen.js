@@ -514,7 +514,10 @@ export default function CreateProjectScreen({ navigation, route }) {
                     </Text>
                   </View>
                   {!!step.description && (
-                    <Text style={styles.stepSummaryDescription} numberOfLines={2}>
+                    <Text
+                      style={styles.stepSummaryDescription}
+                      numberOfLines={2}
+                    >
                       {step.description}
                     </Text>
                   )}
@@ -939,5 +942,9 @@ const styles = StyleSheet.create({
     borderRadius: UI.radius.md,
     alignItems: "center",
   },
-  createButtonText: { fontSize: 14, fontWeight: "700", color: COLORS.background },
+  createButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.background,
+  },
 });

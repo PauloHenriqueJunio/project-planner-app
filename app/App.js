@@ -22,35 +22,47 @@ export default function App() {
     if (Platform.OS !== "web" || typeof document === "undefined") return;
 
     const { body, documentElement } = document;
+    const root = document.getElementById("root");
     const previousBodyOverflow = body.style.overflow;
     const previousHtmlOverflow = documentElement.style.overflow;
     const previousBodyHeight = body.style.height;
     const previousHtmlHeight = documentElement.style.height;
+    const previousBodyOverscroll = body.style.overscrollBehavior;
+    const previousRootHeight = root?.style.height;
 
-    body.style.overflow = "auto";
-    documentElement.style.overflow = "auto";
-    body.style.height = "auto";
-    documentElement.style.height = "auto";
+    body.style.overflow = "hidden";
+    documentElement.style.overflow = "hidden";
+    body.style.height = "100%";
+    documentElement.style.height = "100%";
+    body.style.overscrollBehavior = "none";
+    if (root) root.style.height = "100%";
 
     return () => {
       body.style.overflow = previousBodyOverflow;
       documentElement.style.overflow = previousHtmlOverflow;
       body.style.height = previousBodyHeight;
       documentElement.style.height = previousHtmlHeight;
+      body.style.overscrollBehavior = previousBodyOverscroll;
+      if (root) root.style.height = previousRootHeight || "";
     };
   }, []);
+
+  const appStyle =
+    Platform.OS === "web"
+      ? { flex: 1, height: "100dvh", overflow: "hidden" }
+      : { flex: 1 };
 
   return (
     <>
       <StatusBar barStyle="light-content" />
-      <View style={{ flex: 1, minHeight: "100vh" }}>
+      <View style={appStyle}>
         <NavigationContainer>
           <ToastProvider>
             <ProjectProvider>
               <Stack.Navigator
                 screenOptions={{
                   headerShown: false,
-                  cardStyle: { backgroundColor: COLORS.background },
+                  cardStyle: { flex: 1, backgroundColor: COLORS.background },
                 }}
               >
                 <Stack.Screen

@@ -1,45 +1,39 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-<<<<<<< HEAD
-  Pressable,
-} from "react-native";
-import { COLORS } from "../constants/colors";
-import { getProjects, updateProject } from "../storage/projectStorage";
-=======
   View,
 } from "react-native";
 import { COLORS, UI } from "../constants/colors";
->>>>>>> main
+
+function normalizeSteps(input) {
+  return (Array.isArray(input) ? input : []).map((step, index) => ({
+    id: step.id || String(index + 1),
+    title: step.title || step.titulo || `Etapa ${index + 1}`,
+    description:
+      step.description ||
+      (Array.isArray(step.subetapas) ? step.subetapas.join(" - ") : ""),
+    completed: Boolean(step.completed),
+  }));
+}
 
 export default function TrackingScreen({ route, navigation }) {
   const routeProject = route.params?.project;
   const routeSteps = route.params?.steps || [];
 
-  const [project, setProject] = useState(
-    routeProject || { name: "Projeto Sem Nome", id: "1", etapas: [] },
+  const [project] = useState(
+    routeProject || { name: "Projeto Sem Nome", id: "1", steps: [] },
   );
-  const [steps, setSteps] = useState(
-    routeSteps.length > 0 ? routeSteps : project.etapas || project.steps || [],
+  const [steps] = useState(() =>
+    normalizeSteps(
+      routeSteps.length > 0
+        ? routeSteps
+        : project.steps || project.etapas || [],
+    ),
   );
-
-  useEffect(() => {
-    const load = async () => {
-      if (!project?.id) return;
-      const all = await getProjects();
-      const found = all.find((p) => p.id === project.id);
-      if (found) {
-        setProject(found);
-        setSteps(found.etapas || found.steps || []);
-      }
-    };
-
-    load();
-  }, [route.params]);
 
   const nextPendingStep = useMemo(
     () => steps.find((step) => !step.completed),
@@ -51,38 +45,6 @@ export default function TrackingScreen({ route, navigation }) {
   const progressPercent = totalSteps
     ? Math.round((completedCount / totalSteps) * 100)
     : 0;
-<<<<<<< HEAD
-
-  const toggleStep = async (stepId) => {
-    const nextSteps = steps.map((step) =>
-      step.id === stepId ? { ...step, completed: !step.completed } : step,
-    );
-
-    const nextCompletedCount = nextSteps.filter(
-      (step) => step.completed,
-    ).length;
-    const nextTotalSteps = nextSteps.length;
-    const nextProgressPercent = nextTotalSteps
-      ? Math.round((nextCompletedCount / nextTotalSteps) * 100)
-      : 0;
-
-    const nextProject = {
-      ...project,
-      etapas: nextSteps,
-      progresso: nextProgressPercent,
-    };
-
-    setProject(nextProject);
-    setSteps(nextSteps);
-
-    try {
-      await updateProject(nextProject);
-    } catch (_error) {
-      // Persistência local falhou, mas a UI continua funcionando.
-    }
-  };
-=======
->>>>>>> main
 
   return (
     <SafeAreaView style={styles.container}>
@@ -97,16 +59,22 @@ export default function TrackingScreen({ route, navigation }) {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.heroCard}>
           <Text style={styles.heroLabel}>Projeto</Text>
-          <Text style={styles.heroTitle}>{project.name}</Text>
+          <Text style={styles.heroTitle}>{project.name || project.titulo}</Text>
           <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+            <View
+              style={[styles.progressFill, { width: `${progressPercent}%` }]}
+            />
           </View>
-          <Text style={styles.heroMeta}>{progressPercent}% concluído</Text>
+          <Text style={styles.heroMeta}>{progressPercent}% concluido</Text>
         </View>
 
         <View style={styles.statsGrid}>
           <MetricCard label="Etapas" value={totalSteps} />
-          <MetricCard label="Concluídas" value={completedCount} tone="success" />
+          <MetricCard
+            label="Concluidas"
+            value={completedCount}
+            tone="success"
+          />
           <MetricCard
             label="Pendentes"
             value={Math.max(totalSteps - completedCount, 0)}
@@ -115,130 +83,35 @@ export default function TrackingScreen({ route, navigation }) {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Próximo passo</Text>
+          <Text style={styles.sectionTitle}>Proximo passo</Text>
           {nextPendingStep ? (
             <View style={styles.nextStepCard}>
-<<<<<<< HEAD
-              <View style={styles.nextStepIcon}>
-                <Text style={styles.nextStepIconText}>📍</Text>
-              </View>
-              <View style={styles.nextStepContent}>
-                <Text style={styles.nextStepTitle}>
-                  {nextPendingStep.title || nextPendingStep.titulo}
-                </Text>
-=======
               <Text style={styles.nextStepTitle}>{nextPendingStep.title}</Text>
               {!!nextPendingStep.description && (
->>>>>>> main
                 <Text style={styles.nextStepDescription}>
-                  {nextPendingStep.description ||
-                    nextPendingStep.subetapas?.join(" • ")}
+                  {nextPendingStep.description}
                 </Text>
               )}
             </View>
           ) : (
             <View style={styles.completedCard}>
               <Text style={styles.completedText}>
-                Parabéns! Todos os passos foram concluídos.
+                Parabens! Todos os passos foram concluidos.
               </Text>
             </View>
           )}
         </View>
 
-<<<<<<< HEAD
-        {/* Informações do Projeto */}
-        <View style={styles.projectInfoSection}>
-          <Text style={styles.sectionTitle}>Informações do Projeto</Text>
-
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Nome do Projeto</Text>
-            <Text style={styles.infoValue}>
-              {project.name || project.titulo}
-            </Text>
-          </View>
-
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Total de Etapas</Text>
-            <Text style={styles.infoValue}>{totalSteps}</Text>
-          </View>
-
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Concluídas</Text>
-            <Text style={styles.infoValue} style={{ color: COLORS.success }}>
-              {completedCount}
-            </Text>
-          </View>
-
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Pendentes</Text>
-            <Text style={styles.infoValue} style={{ color: COLORS.warning }}>
-              {totalSteps - completedCount}
-            </Text>
-          </View>
-        </View>
-
-        {/* Progresso Geral */}
-        <View style={styles.progressSection}>
-          <Text style={styles.sectionTitle}>Progresso Geral</Text>
-
-          <View style={styles.progressCard}>
-            <View style={styles.progressCircle}>
-              <Text style={styles.progressPercent}>{progressPercent}%</Text>
-            </View>
-
-            <View style={styles.progressBarVertical}>
-              <View
-                style={[
-                  styles.progressBarVerticalFill,
-                  { height: `${progressPercent}%` },
-                ]}
-              />
-            </View>
-
-            <View style={styles.progressStats}>
-              <View style={styles.statItem}>
-                <View
-                  style={[styles.statDot, { backgroundColor: COLORS.success }]}
-                />
-                <Text style={styles.statLabel}>Concluído</Text>
-                <Text style={styles.statValue}>{completedCount}</Text>
-              </View>
-
-              <View style={styles.statItem}>
-                <View
-                  style={[styles.statDot, { backgroundColor: COLORS.border }]}
-                />
-                <Text style={styles.statLabel}>Pendente</Text>
-                <Text style={styles.statValue}>
-                  {totalSteps - completedCount}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Etapas Restantes */}
-        {steps.length > 0 && (
-          <View style={styles.stepsSection}>
-            <Text style={styles.sectionTitle}>Todas as Etapas</Text>
-
-            {steps.map((step) => (
-              <Pressable
-                key={step.id}
-                onPress={() => toggleStep(step.id)}
-                style={[
-                  styles.stepItemList,
-                  step.completed && styles.stepItemCompleted,
-                ]}
-=======
         {steps.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Todas as etapas</Text>
             {steps.map((step, index) => (
               <View
                 key={step.id}
-                style={[styles.stepItemList, step.completed && styles.stepItemCompleted]}
->>>>>>> main
+                style={[
+                  styles.stepItemList,
+                  step.completed && styles.stepItemCompleted,
+                ]}
               >
                 <View
                   style={[
@@ -247,7 +120,7 @@ export default function TrackingScreen({ route, navigation }) {
                   ]}
                 >
                   <Text style={styles.stepItemIconText}>
-                    {step.completed ? "✓" : index + 1}
+                    {step.completed ? "OK" : index + 1}
                   </Text>
                 </View>
                 <View style={styles.stepItemContent}>
@@ -257,19 +130,13 @@ export default function TrackingScreen({ route, navigation }) {
                       step.completed && styles.stepItemTitleCompleted,
                     ]}
                   >
-                    {step.title || step.titulo}
+                    {step.title}
                   </Text>
-                  <Text style={styles.stepItemDesc}>
-                    {step.description || step.subetapas?.join(" • ")}
-                  </Text>
-<<<<<<< HEAD
-=======
                   {!!step.description && (
                     <Text style={styles.stepItemDesc}>{step.description}</Text>
                   )}
->>>>>>> main
                 </View>
-              </Pressable>
+              </View>
             ))}
           </View>
         )}
@@ -451,7 +318,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.success,
   },
   stepItemIconText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "800",
     color: COLORS.text,
   },

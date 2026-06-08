@@ -31,7 +31,7 @@ def _extract_json_text(text: str) -> str:
     return cleaned
 
 
-def call_groq(prompt: str, max_tokens: int = 1200) -> dict:
+def call_groq(prompt: str, max_tokens: int = 1200, response_format: dict | None = None) -> dict:
     # modo mock para facilitar testes locais quando a chave for 'mock' ou começar com 'test'
     if GROQ_API_KEY and (GROQ_API_KEY == "mock" or GROQ_API_KEY.startswith("test")):
         return {"mock": True, "prompt": prompt}
@@ -52,8 +52,9 @@ def call_groq(prompt: str, max_tokens: int = 1200) -> dict:
         ],
         "max_tokens": max_tokens,
         "temperature": 0.2,
-        "response_format": {"type": "json_object"},
     }
+    if response_format:
+        payload["response_format"] = response_format
 
     resp = requests.post(url, headers=headers, json=payload, timeout=60)
     resp.raise_for_status()
@@ -61,7 +62,7 @@ def call_groq(prompt: str, max_tokens: int = 1200) -> dict:
 
 
 def generate_plan_from_prompt(prompt: str) -> str:
-    data = call_groq(prompt)
+    data = call_groq(prompt, response_format={"type": "json_object"})
 
     # modo mock -> retornar plano de exemplo para testes locais
     if isinstance(data, dict) and data.get("mock"):
@@ -100,7 +101,15 @@ def generate_chat_response(subtask: str, message: str, history: list | None = No
         )
 
     # construir prompt conversacional em português
-    history_text = "\n".join([f"Usuário: {h.get('text')}\nAssistente: {h.get('response', '')}" for h in (history or [])])
+    history_lines = []
+    for item in history or []:
+        if not isinstance(item, dict):
+            continue
+        author = "Assistente" if item.get("from") == "assistant" else "Usuário"
+        text = item.get("text") or item.get("response") or ""
+        if text:
+            history_lines.append(f"{author}: {text}")
+    history_text = "\n".join(history_lines)
     prompt = (
         "Você é um assistente prático que ajuda um usuário a executar sub-tarefas de um projeto. "
         "Receba o contexto da sub-tarefa e a mensagem do usuário e responda em português com passos práticos, exemplos e esclarecimentos quando necessário.\n\n"

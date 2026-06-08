@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import React, { useEffect, useState } from "react";
-=======
 import React, { useContext } from "react";
->>>>>>> main
 import {
   Alert,
   FlatList,
@@ -13,27 +9,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-<<<<<<< HEAD
-import { COLORS } from "../constants/colors";
-import { getProjects } from "../storage/projectStorage";
-=======
 import { COLORS, UI } from "../constants/colors";
 import { ProjectContext } from "../context/ProjectContext";
->>>>>>> main
-
-function normalizeProject(project) {
-  return {
-    ...project,
-    name: project.name || project.titulo || "Projeto sem nome",
-    progress:
-      typeof project.progress === "number"
-        ? project.progress
-        : typeof project.progresso === "number"
-          ? project.progresso
-          : 0,
-    description: project.description || project.descricao || "Sem descrição",
-  };
-}
 
 const ProgressBar = ({ progress }) => (
   <View style={styles.progressContainer}>
@@ -41,8 +18,17 @@ const ProgressBar = ({ progress }) => (
   </View>
 );
 
+function normalizeProject(project) {
+  return {
+    ...project,
+    name: project.name || project.titulo || "Projeto sem nome",
+    description: project.description || project.descricao || "Sem descricao",
+  };
+}
+
 function getProgress(project) {
   if (typeof project.progress === "number") return project.progress;
+  if (typeof project.progresso === "number") return project.progresso;
   if (Array.isArray(project.steps) && project.steps.length > 0) {
     const done = project.steps.filter((s) => s.completed).length;
     return Math.round((done / project.steps.length) * 100);
@@ -51,6 +37,7 @@ function getProgress(project) {
 }
 
 const ProjectCard = ({ project, onPress, onEdit, onDelete }) => {
+  const normalized = normalizeProject(project);
   const computedProgress = getProgress(project);
 
   return (
@@ -58,10 +45,10 @@ const ProjectCard = ({ project, onPress, onEdit, onDelete }) => {
       <View style={styles.projectHeader}>
         <View style={styles.projectTitleBlock}>
           <Text style={styles.projectName} numberOfLines={1}>
-            {project.name}
+            {normalized.name}
           </Text>
           <Text style={styles.projectDescription} numberOfLines={2}>
-            {project.description || "Sem descrição"}
+            {normalized.description}
           </Text>
         </View>
         <View style={styles.progressPill}>
@@ -92,30 +79,13 @@ const ProjectCard = ({ project, onPress, onEdit, onDelete }) => {
 };
 
 export default function DashboardScreen({ navigation }) {
-<<<<<<< HEAD
-  const [projects, setProjects] = useState([]);
-
-  const loadProjects = async () => {
-    const storedProjects = await getProjects();
-    setProjects(storedProjects.map(normalizeProject).reverse());
-  };
-
-  useEffect(() => {
-    loadProjects();
-
-    const unsubscribe = navigation.addListener("focus", loadProjects);
-
-    return unsubscribe;
-  }, [navigation]);
-=======
   const { projects, deleteProject } = useContext(ProjectContext);
-  const visibleProjects = projects && projects.length ? projects : mockProjects;
+  const visibleProjects = projects.map(normalizeProject);
   const totalProjects = visibleProjects.length;
   const averageProgress = Math.round(
     visibleProjects.reduce((sum, project) => sum + getProgress(project), 0) /
       Math.max(totalProjects, 1),
   );
->>>>>>> main
 
   const handleViewDetails = (project) => {
     navigation.navigate("ProjectDetail", {
@@ -130,13 +100,14 @@ export default function DashboardScreen({ navigation }) {
   };
 
   const handleDeleteProject = (project) => {
+    const normalized = normalizeProject(project);
     const doDelete = () => deleteProject(project.id);
     if (Platform.OS === "web" && typeof globalThis.confirm === "function") {
-      if (globalThis.confirm(`Excluir o projeto "${project.name}"?`)) doDelete();
+      if (globalThis.confirm(`Excluir o projeto "${normalized.name}"?`)) doDelete();
       return;
     }
 
-    Alert.alert("Excluir projeto", `Deseja realmente excluir "${project.name}"?`, [
+    Alert.alert("Excluir projeto", `Deseja realmente excluir "${normalized.name}"?`, [
       { text: "Cancelar", style: "cancel" },
       { text: "Excluir", style: "destructive", onPress: doDelete },
     ]);
@@ -165,16 +136,12 @@ export default function DashboardScreen({ navigation }) {
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
           <Text style={styles.summaryValue}>{averageProgress}%</Text>
-          <Text style={styles.summaryLabel}>Média concluída</Text>
+          <Text style={styles.summaryLabel}>Media concluida</Text>
         </View>
       </View>
 
       <FlatList
-<<<<<<< HEAD
-        data={projects}
-=======
         data={visibleProjects}
->>>>>>> main
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <ProjectCard
@@ -184,27 +151,24 @@ export default function DashboardScreen({ navigation }) {
             onDelete={() => handleDeleteProject(item)}
           />
         )}
-<<<<<<< HEAD
-        contentContainerStyle={
-          projects.length === 0 ? styles.emptyContent : styles.listContent
+        ListHeaderComponent={
+          totalProjects > 0 ? (
+            <Text style={styles.sectionTitle}>Projetos recentes</Text>
+          ) : null
         }
-        scrollEnabled={true}
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateTitle}>Nenhum projeto ainda</Text>
             <Text style={styles.emptyStateText}>
-              Crie seu primeiro projeto para começar a gerar etapas e acompanhar
+              Crie seu primeiro projeto para comecar a gerar etapas e acompanhar
               o progresso.
             </Text>
           </View>
         }
-=======
-        ListHeaderComponent={
-          <Text style={styles.sectionTitle}>Projetos recentes</Text>
+        contentContainerStyle={
+          totalProjects === 0 ? styles.emptyContent : styles.listContent
         }
-        contentContainerStyle={styles.listContent}
         scrollEnabled
->>>>>>> main
       />
     </SafeAreaView>
   );
@@ -273,16 +237,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: UI.spacing.lg,
     paddingBottom: 32,
   },
-<<<<<<< HEAD
   emptyContent: {
     flexGrow: 1,
-    padding: 16,
+    padding: UI.spacing.lg,
     justifyContent: "center",
   },
   emptyState: {
     backgroundColor: COLORS.cardBg,
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: UI.radius.lg,
+    padding: UI.spacing.xl,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -296,13 +259,12 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 14,
     lineHeight: 20,
-=======
+  },
   sectionTitle: {
     color: COLORS.text,
     fontSize: 16,
     fontWeight: "800",
     marginBottom: UI.spacing.md,
->>>>>>> main
   },
   projectCard: {
     backgroundColor: COLORS.cardBg,
